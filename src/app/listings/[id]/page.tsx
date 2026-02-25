@@ -52,15 +52,27 @@ interface SEOScore {
   metadata: ScoreDetail;
 }
 
+interface AIRecommendations {
+  title: { current: string; recommended: string; reasoning: string };
+  tags: { current: string[]; recommended: string[]; reasoning: string };
+  description: { current: string; recommended: string; reasoning: string };
+  altTexts: { imageIndex: number; current: string; recommended: string }[];
+  overallStrategy: string;
+}
+
 export default function ListingDetailPage() {
   const params = useParams();
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [seoScore, setSeoScore] = useState<SEOScore | null>(null);
+  const [recommendations, setRecommendations] =
+    useState<AIRecommendations | null>(null);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [recsError, setRecsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"details" | "images" | "seo">(
-    "details"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "details" | "images" | "seo" | "recommendations"
+  >("details");
 
   useEffect(() => {
     fetchListing();
@@ -85,6 +97,26 @@ export default function ListingDetailPage() {
       setError("Failed to fetch listing details");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchRecommendations() {
+    setRecsLoading(true);
+    setRecsError("");
+    try {
+      const res = await fetch(`/api/etsy/recommendations/${params.id}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to fetch");
+      }
+      const data = await res.json();
+      setRecommendations(data.recommendations);
+    } catch (err) {
+      setRecsError(
+        err instanceof Error ? err.message : "Failed to generate recommendations"
+      );
+    } finally {
+      setRecsLoading(false);
     }
   }
 
@@ -159,19 +191,30 @@ export default function ListingDetailPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-800">
-          {(["details", "images", "seo"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
-                activeTab === tab
-                  ? "text-white border-b-2 border-orange-500"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {tab === "seo" ? "SEO Analysis" : tab}
-            </button>
-          ))}
+          {(["details", "images", "seo", "recommendations"] as const).map(
+            (tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === "recommendations" && !recommendations && !recsLoading) {
+                    fetchRecommendations();
+                  }
+                }}
+                className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                  activeTab === tab
+                    ? "text-white border-b-2 border-orange-500"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {tab === "seo"
+                  ? "SEO Score"
+                  : tab === "recommendations"
+                    ? "AI Recommendations"
+                    : tab}
+              </button>
+            )
+          )}
         </div>
 
         {/* Details Tab */}
@@ -405,6 +448,200 @@ export default function ListingDetailPage() {
               <div className="text-center py-16 text-gray-400">
                 <p className="text-sm">Loading SEO analysis...</p>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Recommendations Tab — Side-by-Side */}
+        {activeTab === "recommendations" && (
+          <div className="space-y-6">
+            {recsLoading && (
+              <div className="text-center py-16">
+                <div className="text-gray-400 mb-2">
+                  Analyzing listing and competitors...
+                </div>
+                <p className="text-xs text-gray-600">
+                  This may take 10-15 seconds
+                </p>
+              </div>
+            )}
+
+            {recsError && (
+              <div className="p-4 bg-red-900/30 border border-red-800 rounded-lg">
+                <p className="text-red-300 text-sm">{recsError}</p>
+                <button
+                  onClick={fetchRecommendations}
+                  className="mt-2 text-sm text-orange-400 hover:text-orange-300"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {recommendations && (
+              <>
+                {/* Strategy Summary */}
+                <div className="p-4 bg-orange-900/20 border border-orange-800/30 rounded-xl">
+                  <h3 className="font-medium text-orange-400 mb-1">
+                    Overall Strategy
+                  </h3>
+                  <p className="text-sm text-gray-300">
+                    {recommendations.overallStrategy}
+                  </p>
+                </div>
+
+                {/* Title: Side-by-Side */}
+                <section className="bg-gray-900 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="font-medium">Title</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {recommendations.title.reasoning}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-800">
+                    <div className="p-4">
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">
+                        Current
+                      </span>
+                      <p className="text-sm mt-1 text-gray-400">
+                        {recommendations.title.current}
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <span className="text-xs text-green-500 uppercase tracking-wide">
+                        Recommended
+                      </span>
+                      <p className="text-sm mt-1 text-white">
+                        {recommendations.title.recommended}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Tags: Side-by-Side */}
+                <section className="bg-gray-900 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="font-medium">Tags</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {recommendations.tags.reasoning}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-800">
+                    <div className="p-4">
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">
+                        Current ({recommendations.tags.current.length}/13)
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {recommendations.tags.current.map((tag, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 bg-gray-800 text-gray-400 text-xs rounded"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <span className="text-xs text-green-500 uppercase tracking-wide">
+                        Recommended ({recommendations.tags.recommended.length}
+                        /13)
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {recommendations.tags.recommended.map((tag, i) => {
+                          const isNew =
+                            !recommendations.tags.current.includes(tag);
+                          return (
+                            <span
+                              key={i}
+                              className={`px-2 py-0.5 text-xs rounded ${
+                                isNew
+                                  ? "bg-green-900/30 text-green-400 border border-green-800"
+                                  : "bg-gray-800 text-gray-300"
+                              }`}
+                            >
+                              {tag}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Description: Side-by-Side */}
+                <section className="bg-gray-900 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <h3 className="font-medium">Description</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {recommendations.description.reasoning}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-800">
+                    <div className="p-4">
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">
+                        Current
+                      </span>
+                      <p className="text-sm mt-1 text-gray-400 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                        {recommendations.description.current}
+                      </p>
+                    </div>
+                    <div className="p-4">
+                      <span className="text-xs text-green-500 uppercase tracking-wide">
+                        Recommended
+                      </span>
+                      <p className="text-sm mt-1 text-white whitespace-pre-wrap max-h-64 overflow-y-auto">
+                        {recommendations.description.recommended}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Alt Texts */}
+                {recommendations.altTexts.length > 0 && (
+                  <section className="bg-gray-900 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-800">
+                      <h3 className="font-medium">Image Alt Text</h3>
+                    </div>
+                    <div className="divide-y divide-gray-800">
+                      {recommendations.altTexts.map((alt, i) => (
+                        <div
+                          key={i}
+                          className="grid grid-cols-2 divide-x divide-gray-800"
+                        >
+                          <div className="p-3">
+                            <span className="text-xs text-gray-500">
+                              Image {alt.imageIndex + 1} — Current
+                            </span>
+                            <p className="text-sm mt-0.5 text-gray-400">
+                              {alt.current || "(empty)"}
+                            </p>
+                          </div>
+                          <div className="p-3">
+                            <span className="text-xs text-green-500">
+                              Recommended
+                            </span>
+                            <p className="text-sm mt-0.5 text-white">
+                              {alt.recommended}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Regenerate Button */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={fetchRecommendations}
+                    disabled={recsLoading}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-900 text-sm text-gray-300 rounded-lg transition-colors"
+                  >
+                    Regenerate Recommendations
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
