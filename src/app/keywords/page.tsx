@@ -18,10 +18,17 @@ interface KeywordResult {
   titleKeywords: { word: string; count: number }[];
 }
 
+interface AISuggestions {
+  keywords: string[];
+  reasoning: string;
+}
+
 export default function KeywordResearchPage() {
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<KeywordResult | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestions | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSearch(e: React.FormEvent) {
@@ -42,10 +49,35 @@ export default function KeywordResearchPage() {
       if (!res.ok) throw new Error("Research failed");
       const data = await res.json();
       setResult(data);
+      setAiSuggestions(null);
     } catch {
       setError("Keyword research failed. Make sure Etsy is connected.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleAiSuggest() {
+    if (!result) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/keywords/ai-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seedKeyword: result.seedKeyword,
+          existingTags: [],
+          competitorTags: result.tagFrequency,
+          competitorTitleWords: result.titleKeywords,
+        }),
+      });
+      if (!res.ok) throw new Error("AI suggestion failed");
+      const data = await res.json();
+      setAiSuggestions(data);
+    } catch {
+      setError("AI suggestions failed. Make sure ANTHROPIC_API_KEY is set.");
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -157,6 +189,52 @@ export default function KeywordResearchPage() {
                   </span>
                 ))}
               </div>
+            </section>
+
+            {/* AI-Powered Suggestions */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold">
+                  AI-Powered Suggestions
+                </h2>
+                <button
+                  onClick={handleAiSuggest}
+                  disabled={aiLoading}
+                  className="px-4 py-1.5 bg-orange-600 hover:bg-orange-500 disabled:bg-gray-700 text-white text-sm rounded-lg transition-colors"
+                >
+                  {aiLoading
+                    ? "Generating..."
+                    : aiSuggestions
+                      ? "Regenerate"
+                      : "Generate AI Suggestions"}
+                </button>
+              </div>
+              {aiSuggestions ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400 bg-gray-900 p-3 rounded-lg">
+                    {aiSuggestions.reasoning}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {aiSuggestions.keywords.map((kw, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 bg-orange-900/20 border border-orange-800/30 text-orange-300 text-sm rounded-lg"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : !aiLoading ? (
+                <p className="text-gray-500 text-sm">
+                  Click &quot;Generate AI Suggestions&quot; to get keyword ideas
+                  powered by Claude, based on the competitor data above.
+                </p>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  Analyzing competitor data and generating suggestions...
+                </p>
+              )}
             </section>
 
             {/* Top Competitors */}
