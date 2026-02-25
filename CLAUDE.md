@@ -197,32 +197,37 @@ For each listing, generate actionable recommendations:
 
 ---
 
+## GitHub Repo
+https://github.com/igorbekker/etsy
+
 ## Key Files Structure
 ```
 etsy/
 ├── CLAUDE.md
 ├── package.json
-├── next.config.js
-├── .env.local                # API keys, auth secrets
+├── next.config.ts
+├── .env.local                # API keys, auth secrets (gitignored)
+├── scripts/
+│   ├── generate-jwt-secret.js
+│   └── hash-password.js
 ├── src/
-│   ├── app/                  # Next.js app router
-│   │   ├── page.tsx          # Dashboard
-│   │   ├── login/            # Login page
-│   │   ├── listings/         # Listing views
-│   │   └── api/              # API routes
-│   │       ├── auth/         # JWT auth endpoints
-│   │       ├── etsy/         # Etsy API proxy routes
-│   │       └── keywords/     # Keyword research endpoints
+│   ├── middleware.ts          # Route protection (JWT check)
+│   ├── app/
+│   │   ├── page.tsx           # Dashboard
+│   │   ├── login/page.tsx     # Login page
+│   │   ├── keywords/page.tsx  # Keyword research page
+│   │   ├── listings/[id]/page.tsx  # Listing detail + SEO tab
+│   │   └── api/
+│   │       ├── auth/          # Login/logout routes
+│   │       ├── etsy/          # Connect, callback, listings, status, score
+│   │       └── keywords/      # Research endpoint
 │   ├── lib/
-│   │   ├── etsy-client.ts    # Etsy API wrapper (auth, token refresh, API calls)
+│   │   ├── auth.ts            # JWT auth logic (verify, create, hash)
+│   │   ├── etsy-client.ts     # Etsy API wrapper (OAuth, listings, search)
 │   │   ├── keyword-research.ts  # Autocomplete scraping + competitor analysis
-│   │   ├── optimizer.ts      # Recommendation engine
-│   │   └── scoring.ts        # Listing SEO scoring
-│   └── components/           # React UI components
-├── data/                     # JSON storage for cached results
-└── tasks/
-    ├── todo.md
-    └── lessons.md
+│   │   └── scoring.ts         # SEO scoring engine (title, tags, desc, images, metadata)
+│   └── components/            # React UI components
+└── data/                      # JSON storage (etsy-tokens.json, gitignored)
 ```
 
 ---
