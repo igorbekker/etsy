@@ -213,21 +213,25 @@ etsy/
 ├── src/
 │   ├── middleware.ts          # Route protection (JWT check)
 │   ├── app/
-│   │   ├── page.tsx           # Dashboard
+│   │   ├── page.tsx           # Dashboard (SEO scores, priority sort)
 │   │   ├── login/page.tsx     # Login page
 │   │   ├── keywords/page.tsx  # Keyword research page
-│   │   ├── listings/[id]/page.tsx  # Listing detail + SEO tab
+│   │   ├── listings/[id]/page.tsx  # Listing detail (Details, Images, SEO, AI Recommendations)
 │   │   └── api/
 │   │       ├── auth/          # Login/logout routes
-│   │       ├── etsy/          # Connect, callback, listings, status, score
-│   │       └── keywords/      # Research endpoint
+│   │       ├── etsy/          # Connect, callback, listings, status, score, scores, recommendations
+│   │       └── keywords/      # Research + AI suggest endpoints
 │   ├── lib/
 │   │   ├── auth.ts            # JWT auth logic (verify, create, hash)
 │   │   ├── etsy-client.ts     # Etsy API wrapper (OAuth, listings, search)
 │   │   ├── keyword-research.ts  # Autocomplete scraping + competitor analysis
+│   │   ├── ai-suggestions.ts  # Claude API integration (listing + keyword recommendations)
 │   │   └── scoring.ts         # SEO scoring engine (title, tags, desc, images, metadata)
 │   └── components/            # React UI components
-└── data/                      # JSON storage (etsy-tokens.json, gitignored)
+├── data/                      # JSON storage (etsy-tokens.json, gitignored)
+└── tasks/
+    ├── todo.md                # Phase 1 checklist + review
+    └── lessons.md             # Lessons from corrections
 ```
 
 ---
