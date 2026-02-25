@@ -263,6 +263,12 @@ export default function ListingDetailPage() {
                   <p className="text-sm">{listing.taxonomy_id}</p>
                 </div>
                 <div>
+                  <span className="text-xs text-gray-500">Shipping Profile</span>
+                  <p className="text-sm">
+                    {listing.shipping_profile_id || "Not set"}
+                  </p>
+                </div>
+                <div>
                   <span className="text-xs text-gray-500">Who Made</span>
                   <p className="text-sm capitalize">
                     {listing.who_made?.replace(/_/g, " ")}

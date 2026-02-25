@@ -19,3 +19,7 @@
 ## 5. Don't mark tasks complete until ALL sub-items are done
 **Correction:** Marked tasks complete but dashboard was missing SEO scores, AI suggestions weren't built, side-by-side view was absent.
 **Rule:** A feature is only done when every bullet point under it in the plan is implemented and verified. Partial implementation = in_progress, not completed.
+
+## 6. Self-verify LINE BY LINE, not section by section
+**Correction:** User asked "re-read the MD and check" 4 consecutive times. Each time found a new gap: (1) missing workflow files + features, (2) outdated file structure, (3) backend without frontend wiring, (4) missing UI field + scoring gap.
+**Rule:** When verifying against the CLAUDE.md, check EVERY SINGLE LINE — not just section headers. For each bullet point: (a) does the backend implement it? (b) does the frontend expose it to the user? (c) does the file structure doc match? A backend endpoint without a frontend button is NOT done. A data field without UI display is NOT done.

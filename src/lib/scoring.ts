@@ -297,16 +297,25 @@ function scoreMetadata(listing: EtsyListing): ScoreDetail {
   let score = 0;
   const maxScore = 15;
 
+  // Category/taxonomy set
+  if (listing.taxonomy_id) {
+    score += 2;
+  } else {
+    issues.push(
+      "No category set. Choose a specific category to help Etsy match your listing to the right searches."
+    );
+  }
+
   // Materials filled
   if (listing.materials && listing.materials.length > 0) {
-    score += 4;
+    score += 3;
   } else {
     suggestions.push("Add materials to help buyers find your product.");
   }
 
   // Styles filled
   if (listing.styles && listing.styles.length > 0) {
-    score += 3;
+    score += 2;
   } else {
     suggestions.push("Add style tags to your listing.");
   }
@@ -329,6 +338,15 @@ function scoreMetadata(listing: EtsyListing): ScoreDetail {
   } else {
     suggestions.push(
       "Assign this listing to a shop section for better organization."
+    );
+  }
+
+  // Category specificity note (taxonomy_id exists but we can't programmatically
+  // determine "best" category without comparing to competitors — the AI
+  // recommendations tab handles that deeper analysis)
+  if (listing.taxonomy_id) {
+    suggestions.push(
+      "Check the AI Recommendations tab to verify your category matches top competitors."
     );
   }
 
