@@ -25,6 +25,11 @@ export interface AIRecommendations {
     current: string;
     recommended: string;
   }[];
+  category: {
+    current: number | null;
+    recommended: string;
+    reasoning: string;
+  };
   overallStrategy: string;
 }
 
@@ -36,7 +41,7 @@ export async function generateListingRecommendations(
     .slice(0, 10)
     .map(
       (c, i) =>
-        `${i + 1}. Title: "${c.title}"\n   Tags: ${c.tags.join(", ")}\n   Views: ${c.views}, Price: $${c.price.toFixed(2)}`
+        `${i + 1}. Title: "${c.title}"\n   Tags: ${c.tags.join(", ")}\n   Views: ${c.views}, Price: $${c.price.toFixed(2)}${c.taxonomy_id ? `, Category ID: ${c.taxonomy_id}` : ""}`
     )
     .join("\n");
 
@@ -48,7 +53,7 @@ export async function generateListingRecommendations(
     .join("\n");
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 2000,
     messages: [
       {
@@ -60,6 +65,7 @@ export async function generateListingRecommendations(
 - Tags (${listing.tags?.length || 0}/13): ${listing.tags?.join(", ") || "none"}
 - Description: "${listing.description?.slice(0, 500)}${listing.description?.length > 500 ? "..." : ""}"
 - Materials: ${listing.materials?.join(", ") || "none"}
+- Category ID: ${listing.taxonomy_id || "not set"}
 - Views: ${listing.views}
 
 ## Images
@@ -89,6 +95,11 @@ Respond in valid JSON only (no markdown, no code fences) with this structure:
   "altTexts": [
     {"imageIndex": 0, "current": "current alt", "recommended": "keyword-rich descriptive alt text"}
   ],
+  "category": {
+    "current": 1234,
+    "recommended": "Analysis of whether the current category is optimal based on what top competitors use. If most competitors use a different category ID, recommend switching and explain why.",
+    "reasoning": "why this category is or isn't the best fit"
+  },
   "overallStrategy": "1-2 sentence summary of the optimization strategy"
 }
 
@@ -97,7 +108,8 @@ Focus on:
 2. Natural keyword placement (not stuffing)
 3. Etsy's 140-char title limit and 13-tag limit
 4. Alt text should describe the image AND include relevant keywords
-5. Only include altTexts for images that need improvement (empty or short alt text)`,
+5. Only include altTexts for images that need improvement (empty or short alt text)
+6. For category: compare this listing's category ID against competitors' categories. If most competitors use a different category, recommend the change.`,
       },
     ],
   });
@@ -107,7 +119,11 @@ Focus on:
     throw new Error("No text response from Claude");
   }
 
-  return JSON.parse(textContent.text);
+  try {
+    return JSON.parse(textContent.text);
+  } catch {
+    throw new Error("Claude returned invalid JSON for listing recommendations");
+  }
 }
 
 export async function generateKeywordSuggestions(
@@ -117,7 +133,7 @@ export async function generateKeywordSuggestions(
   competitorTitleWords: { word: string; count: number }[]
 ): Promise<{ keywords: string[]; reasoning: string }> {
   const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1000,
     messages: [
       {
@@ -159,5 +175,9 @@ Focus on keywords that:
     throw new Error("No text response from Claude");
   }
 
-  return JSON.parse(textContent.text);
+  try {
+    return JSON.parse(textContent.text);
+  } catch {
+    throw new Error("Claude returned invalid JSON for keyword suggestions");
+  }
 }

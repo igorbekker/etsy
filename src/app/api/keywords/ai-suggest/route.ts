@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateKeywordSuggestions } from "@/lib/ai-suggestions";
 import { isConnected } from "@/lib/etsy-client";
+import { DEMO_MODE, MOCK_AI_SUGGESTIONS } from "@/lib/mock-data";
 
 export async function POST(request: NextRequest) {
+  const { seedKeyword, existingTags, competitorTags, competitorTitleWords } =
+    await request.json();
+
+  if (DEMO_MODE) {
+    return NextResponse.json(MOCK_AI_SUGGESTIONS);
+  }
+
   const connected = await isConnected();
   if (!connected) {
     return NextResponse.json(
@@ -17,9 +25,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-
-  const { seedKeyword, existingTags, competitorTags, competitorTitleWords } =
-    await request.json();
 
   if (!seedKeyword) {
     return NextResponse.json(

@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { getAllShopListings, isConnected } from "@/lib/etsy-client";
 import { scoreListing } from "@/lib/scoring";
+import { DEMO_MODE, MOCK_LISTINGS } from "@/lib/mock-data";
 
 export async function GET() {
+  if (DEMO_MODE) {
+    const scores: Record<number, number> = {};
+    for (const listing of MOCK_LISTINGS) {
+      scores[listing.listing_id] = scoreListing(listing).overall;
+    }
+    return NextResponse.json({ scores });
+  }
+
   const connected = await isConnected();
   if (!connected) {
     return NextResponse.json(

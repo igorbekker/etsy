@@ -103,6 +103,8 @@ export default function Dashboard() {
         return sorted.sort((a, b) => b.views - a.views);
       case "title":
         return sorted.sort((a, b) => a.title.localeCompare(b.title));
+      default:
+        return sorted;
     }
   }
 
@@ -123,6 +125,11 @@ export default function Dashboard() {
           <p className="text-sm text-gray-400">MyHomeByMax</p>
         </div>
         <div className="flex items-center gap-4">
+          {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+            <span className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full">
+              Demo Mode
+            </span>
+          )}
           {connected ? (
             <span className="text-sm text-green-400 flex items-center gap-1.5">
               <span className="w-2 h-2 bg-green-400 rounded-full" />

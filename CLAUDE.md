@@ -226,8 +226,8 @@ etsy/
 │   │   ├── etsy-client.ts     # Etsy API wrapper (OAuth, listings, search)
 │   │   ├── keyword-research.ts  # Autocomplete scraping + competitor analysis
 │   │   ├── ai-suggestions.ts  # Claude API integration (listing + keyword recommendations)
-│   │   └── scoring.ts         # SEO scoring engine (title, tags, desc, images, metadata)
-│   └── components/            # React UI components
+│   │   ├── scoring.ts         # SEO scoring engine (title, tags, desc, images, metadata)
+│   │   └── mock-data.ts       # Demo mode mock data (listings, recommendations, keywords)
 ├── data/                      # JSON storage (etsy-tokens.json, gitignored)
 └── tasks/
     ├── todo.md                # Phase 1 checklist + review

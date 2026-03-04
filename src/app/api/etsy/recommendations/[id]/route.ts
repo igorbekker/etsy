@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getListing, searchListings, isConnected } from "@/lib/etsy-client";
 import { generateListingRecommendations } from "@/lib/ai-suggestions";
+import { DEMO_MODE, getMockRecommendations } from "@/lib/mock-data";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const listingId = parseInt(id, 10);
+  if (isNaN(listingId)) {
+    return NextResponse.json(
+      { error: "Invalid listing ID" },
+      { status: 400 }
+    );
+  }
+
+  if (DEMO_MODE) {
+    return NextResponse.json({ recommendations: getMockRecommendations(listingId) });
+  }
+
   const connected = await isConnected();
   if (!connected) {
     return NextResponse.json(
@@ -18,15 +32,6 @@ export async function GET(
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY not configured" },
       { status: 500 }
-    );
-  }
-
-  const { id } = await params;
-  const listingId = parseInt(id, 10);
-  if (isNaN(listingId)) {
-    return NextResponse.json(
-      { error: "Invalid listing ID" },
-      { status: 400 }
     );
   }
 
@@ -48,6 +53,7 @@ export async function GET(
         listing_id: r.listing_id,
         title: r.title,
         tags: r.tags || [],
+        taxonomy_id: r.taxonomy_id,
         views: r.views,
         url: r.url,
         price: r.price.amount / r.price.divisor,

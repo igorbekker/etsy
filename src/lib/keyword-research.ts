@@ -11,6 +11,7 @@ export interface CompetitorAnalysis {
   listing_id: number;
   title: string;
   tags: string[];
+  taxonomy_id: number;
   views: number;
   url: string;
   price: number;
@@ -74,6 +75,7 @@ export async function analyzeCompetitors(
     listing_id: listing.listing_id,
     title: listing.title,
     tags: listing.tags || [],
+    taxonomy_id: listing.taxonomy_id,
     views: listing.views,
     url: listing.url,
     price: listing.price.amount / listing.price.divisor,

@@ -57,6 +57,7 @@ interface AIRecommendations {
   tags: { current: string[]; recommended: string[]; reasoning: string };
   description: { current: string; recommended: string; reasoning: string };
   altTexts: { imageIndex: number; current: string; recommended: string }[];
+  category: { current: number | null; recommended: string; reasoning: string };
   overallStrategy: string;
 }
 
@@ -495,6 +496,36 @@ export default function ListingDetailPage() {
                     {recommendations.overallStrategy}
                   </p>
                 </div>
+
+                {/* Category Check */}
+                {recommendations.category && (
+                  <section className="bg-gray-900 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-800">
+                      <h3 className="font-medium">Category / Taxonomy</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {recommendations.category.reasoning}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-gray-800">
+                      <div className="p-4">
+                        <span className="text-xs text-gray-500 uppercase tracking-wide">
+                          Current Category ID
+                        </span>
+                        <p className="text-sm mt-1 text-gray-400">
+                          {recommendations.category.current || "Not set"}
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <span className="text-xs text-green-500 uppercase tracking-wide">
+                          Recommendation
+                        </span>
+                        <p className="text-sm mt-1 text-white">
+                          {recommendations.category.recommended}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 {/* Title: Side-by-Side */}
                 <section className="bg-gray-900 rounded-xl overflow-hidden">

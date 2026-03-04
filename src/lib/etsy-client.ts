@@ -305,6 +305,7 @@ export interface EtsySearchResult {
   description: string;
   tags: string[];
   price: { amount: number; divisor: number; currency_code: string };
+  taxonomy_id: number;
   views: number;
   url: string;
 }
