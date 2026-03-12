@@ -92,7 +92,34 @@
 - [x] Remove "Connect Etsy" UI from dashboard — 2026-03-12
 - [x] Remove isConnected() checks from all 7 API routes — 2026-03-12
 - [x] Test listings load: 12 listings returned via API key — 2026-03-12
+- [x] UI redesign: split-screen layout (left panel listings, right panel detail with tabs) — 2026-03-12
+- [x] Removed Logout button and dead auth references from dashboard — 2026-03-12
+- [x] Fixed contrast: explicit text/bg colors throughout, no black-on-black — 2026-03-12
+- [x] Detail panel inline in page.tsx (no page navigation on listing click) — 2026-03-12
+- [x] Verified build passes: 9 routes, 0 errors — 2026-03-12
 - [ ] Fix any issues found during real testing
+
+### Review — UI Redesign 2026-03-12
+- Split-screen layout: left 320px listing list, right panel detail — ✅
+- Selected listing highlighted with orange left border — ✅
+- Detail panel: Details, Images, SEO Score, AI Recs tabs — ✅
+- SEO score loads per-listing on click — ✅
+- Color contrast fixed: gray-100/200/300 text on gray-800/900/950 backgrounds — ✅
+- Build passes: 9 routes, 0 errors — ✅
+
+---
+
+## Phase 2 — Logs & Change Tracking (Future)
+
+### Plan
+- [ ] Add top-level tab navigation: "Active Listings" | "Logs"
+- [ ] Build change log data structure (JSON file per listing, or single log file)
+  - Each entry: timestamp, listing_id, listing_title, field changed, old value, new value, source (AI rec / manual)
+- [ ] When a recommendation is applied (title, description, tags, alt text), write a log entry
+- [ ] Logs page: list all changes across all listings, grouped by listing
+- [ ] Each log entry is collapsible — shows old vs new value side by side
+- [ ] Revert button per entry — restores old value (via Etsy API write or manual instruction)
+- [ ] Filter logs by listing, field type, date range
 
 ### Review — OAuth Removal 2026-03-12
 - etsy-client.ts rewritten: no OAuth, no token storage, API key only ✅
