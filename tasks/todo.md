@@ -371,6 +371,23 @@ Two compounding bugs:
 
 ---
 
+## Session 2026-03-12 — CLAUDE.md: remove shipping flag
+
+### Plan
+- [x] CLAUDE.md: remove shipping flag from Phase 2 (all listings are free shipping — zero value) — 2026-03-12
+- [x] CLAUDE.md: remove shipping profile write endpoint from writable fields table — 2026-03-12
+
+### Review — CLAUDE.md shipping flag removal 2026-03-12
+
+#### What was done
+User pointed out all listings have free shipping — the $6 US shipping flag would never trigger. Removed from Phase 2 roadmap and from the confirmed writable fields table. Renumbered remaining Phase 2 items 1–8.
+
+#### Verification
+- CLAUDE.md reads correctly, no references to shipping flag remain ✅
+- No code changes ✅
+
+---
+
 ## Session 2026-03-12 — CLAUDE.md audit + gap analysis
 
 ### Plan

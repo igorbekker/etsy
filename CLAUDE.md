@@ -91,7 +91,6 @@ Build a web tool for the Etsy shop **MyHomeByMax** that connects to the Etsy API
 - `PATCH /listings/{listing_id}` → title, tags (array of 13), description, price
 - `POST /application/shops/{shop_id}/listings/{listing_id}/images` → image alt text (pass `listing_image_id` + `alt_text`; omit `overwrite` flag)
 - `PUT /shops/{shop_id}/listings/{listing_id}/properties/{property_id}` → attributes
-- `PUT /shops/{shop_id}/shipping-profiles/{id}` → shipping price
 
 **Etsy API v3 — NOT writable / not available:**
 - Keyword search volume — no endpoint exists
@@ -155,16 +154,14 @@ For each listing, generate actionable recommendations:
 ---
 
 ## Phase 2 — Intelligence Engine (Next)
-Priority order per etsy-intelligence-engine.md:
-1. **Shipping flag** — GET /shops/{id}/shipping-profiles; flag US domestic >= $6; offer option A (reduce shipping) or B (absorb into price); write via PUT shipping-profiles
-2. **Tag Push Live** — PATCH /listings/{id} with full 13-tag array; already have copy button, add Push Live
-3. **Title Push Live** — PATCH /listings/{id} with new title; already have copy button, add Push Live
-4. **Description Push Live** — PATCH /listings/{id} with new description; already have copy button, add Push Live
-5. **KPI panel** — compute per listing: revenue 30d, conversion proxy, favorites/views ratio, sales velocity, listing age, days until expiry, tag completeness, attribute fill rate
-6. **Attribute fill rate** — GET /seller-taxonomy/nodes/{taxonomy_id}/properties; diff vs listing properties; auto-write missing attributes
+1. **Tag Push Live** — PATCH /listings/{id} with full 13-tag array; already have copy button, add Push Live
+2. **Title Push Live** — PATCH /listings/{id} with new title; already have copy button, add Push Live
+3. **Description Push Live** — PATCH /listings/{id} with new description; already have copy button, add Push Live
+4. **Attribute fill rate** — GET /seller-taxonomy/nodes/{taxonomy_id}/properties; diff vs listing properties; auto-write missing attributes
+5. **Tag scoring improvements** — attribute duplicate detection, single-word tag replacement with multi-word phrases
+6. **KPI panel** — compute per listing: revenue 30d, conversion proxy, favorites/views ratio, sales velocity, listing age, days until expiry, tag completeness
 7. **Photo benchmarking** — competitor avg photo count vs yours; flag if < 5 or below category avg
 8. **Price analysis** — competitor price distribution (25th/75th percentile); underpriced/overpriced flags; margin formula; human approval required before any write
-9. **Weekly cadence** — structured Mon–Sun automation for KPI pulls, tag gap analysis, attribute writes, title scoring
 
 ## Phase 3 — Future
 - A/B testing framework

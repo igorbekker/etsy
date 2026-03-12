@@ -115,6 +115,10 @@
 **Violated.** Proposed a cron that would `curl localhost:3000/api/cron/...`. This is fragile (server must be up, port must match) and wrong for this stack (Next.js, not Gunicorn/Python).
 **Rule:** For background tasks in a Next.js app on a VPS, either run a standalone Node script that imports the logic directly, or use a manual trigger via UI button. Never design a cron that HTTP-calls its own server.
 
+## 30. When a feature is irrelevant to the user's context, delete it — don't skip it
+**Violated.** Proposed skipping the shipping flag feature because all listings have free shipping. User corrected: "Don't skip it; just delete it." Skipping leaves dead weight in the plan; deleting keeps it clean.
+**Rule:** When a planned feature is confirmed irrelevant (wrong stack, wrong shop setup, zero users), remove it from CLAUDE.md and todo.md entirely. Don't mark it deferred or skipped — delete it.
+
 ## 26. After deploying new code, confirm the old server process was actually killed
 **Violated.** Restarted the server but the old process (PID 289171) was still running and holding port 3000. The new process silently failed to bind. Spent time debugging the wrong binary.
 **Rule:** After killing a server and starting a new one, immediately run `ps aux | grep next` to confirm the old PID is gone and the new PID is running. Then hit a known endpoint to confirm the new code is live before testing the fix.
