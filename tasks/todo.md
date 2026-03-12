@@ -3,13 +3,31 @@
 ## Backlog — Bugs & Features
 
 ### Bugs
-- [ ] Images tab: listing images not displaying
-- [ ] AI Recs tab: recommendations never load (stuck or silently failing)
+- [x] Images tab: listing images not displaying — fixed 2026-03-12 (batch API omits images; now fetches full listing on selection via /api/etsy/listings/[id])
+- [x] AI Recs tab: recommendations never load — fixed 2026-03-12 (Claude was wrapping JSON in markdown fences; strip fences before JSON.parse in ai-suggestions.ts)
 
 ### Features
 - [ ] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file
 - [ ] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
+- [ ] AI Recs: store recommendations to JSON file per listing (keyed by listing_id + date); load from cache on tab open instead of auto-generating; show "Regenerate Recommendations" button to explicitly refresh
+- [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
+
+---
+
+## Review — Bug Fixes 2026-03-12
+
+### Images bug
+- Root cause: Etsy batch listings endpoint (`/shops/{id}/listings/active`) ignores `includes=images` — returns null regardless of format tested
+- Fix: `selectListing()` in page.tsx now fires a parallel fetch to `/api/etsy/listings/{id}` (single-listing endpoint, which DOES return images) and merges into `enrichedListings` state
+- DetailPanel uses enriched listing if available, falls back to base listing
+- Verified: `curl http://localhost:3000/api/etsy/listings/4414203319` → 19 images returned ✅
+
+### AI Recs bug
+- Root cause: Claude was wrapping its JSON response in markdown code fences (` ```json ... ``` `), causing `JSON.parse()` to throw
+- Fix: strip fences with `.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")` before parsing — applied to both `generateListingRecommendations` and `generateKeywordSuggestions`
+- Verified: `curl http://localhost:3000/api/etsy/recommendations/4414203319` → full recommendations returned, no error ✅
+- Build passes: 8 routes, 0 errors ✅
 
 ---
 

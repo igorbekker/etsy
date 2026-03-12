@@ -849,6 +849,7 @@ export default function Dashboard() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [scores, setScores] = useState<Record<number, number>>({});
   const [seoScores, setSeoScores] = useState<Record<number, SEOScore>>({});
+  const [enrichedListings, setEnrichedListings] = useState<Record<number, Listing>>({});
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [scoresLoading, setScoresLoading] = useState(false);
@@ -890,6 +891,17 @@ export default function Dashboard() {
 
   async function selectListing(listing: Listing) {
     setSelectedId(listing.listing_id);
+    // Fetch full listing with images (batch API omits images)
+    if (!enrichedListings[listing.listing_id]) {
+      fetch(`/api/etsy/listings/${listing.listing_id}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          if (data?.listing) {
+            setEnrichedListings((prev) => ({ ...prev, [listing.listing_id]: data.listing }));
+          }
+        })
+        .catch(() => {});
+    }
     if (!seoScores[listing.listing_id]) {
       try {
         const res = await fetch(`/api/etsy/score/${listing.listing_id}`);
@@ -917,7 +929,8 @@ export default function Dashboard() {
     }
   }
 
-  const selectedListing = listings.find((l) => l.listing_id === selectedId) ?? null;
+  const baseListing = listings.find((l) => l.listing_id === selectedId) ?? null;
+  const selectedListing = (selectedId && enrichedListings[selectedId]) ? enrichedListings[selectedId] : baseListing;
 
   const topTabs: { key: TopTab; label: string }[] = [
     { key: "listings", label: "Listings" },

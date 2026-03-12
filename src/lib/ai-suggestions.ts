@@ -120,7 +120,8 @@ Focus on:
   }
 
   try {
-    return JSON.parse(textContent.text);
+    const raw = textContent.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    return JSON.parse(raw);
   } catch {
     throw new Error("Claude returned invalid JSON for listing recommendations");
   }
@@ -176,7 +177,8 @@ Focus on keywords that:
   }
 
   try {
-    return JSON.parse(textContent.text);
+    const raw = textContent.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    return JSON.parse(raw);
   } catch {
     throw new Error("Claude returned invalid JSON for keyword suggestions");
   }
