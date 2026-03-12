@@ -13,7 +13,9 @@
   - [x] Part 3: Recommendations route — fetch target keywords, run performKeywordResearch, merge results, pass to Claude — 2026-03-12
   - [x] Part 4: Enrich Claude prompt with autocomplete suggestions, tag frequency, title keywords — 2026-03-12
 - [x] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file — 2026-03-12
-- [ ] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable
+- [x] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable — 2026-03-12
+- [x] Listing details page — Details tab: views label updated to "views (lifetime)" — Etsy API confirmed: lifetime cumulative, updated nightly — 2026-03-12
+- [x] Listing details page — Details tab: units sold — implemented via OAuth transactions_r; shows "X sold" in detail header; shows "Connect Etsy for sales data →" link when not connected — 2026-03-12
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
 - [x] AI Recs caching + Keyword Saved flash — 2026-03-12
   - [x] New GET/POST /api/etsy/recommendations/cache/[id] — reads/writes data/listing-recommendations.json — 2026-03-12
@@ -86,6 +88,60 @@
 - Archived Phase 1 completed tasks (2026-02-25) to Archive section ✅
 - Merged lessons 4 + 10 into single rule; renumbered 11–18 → 10–17; total now 17 ✅
 - todo.md restructured: Backlog at top, Open in-progress, Sessions, Archive ✅
+
+---
+
+## Session 2026-03-12 — Description shrink + Views label + Units sold research
+
+### Plan
+- [x] Description block: add max-h-40 + overflow-y-auto to description <p> in Details tab — 2026-03-12
+- [x] Views label: update all 3 occurrences (detail header, listing card, competitor card) from "X views" → "X views (lifetime)" — 2026-03-12
+- [x] Units sold: API research done — field does not exist on listing; requires OAuth transactions_r scope to sum transactions. Flagged to user. — 2026-03-12
+
+---
+
+## Session 2026-03-12 — Re-add OAuth for Transactions (units sold)
+
+### Plan
+- [x] etsy-client.ts: restore PKCE OAuth helpers (generatePKCE, getCodeVerifier, token load/save/refresh, getValidToken, oauthFetch) — scope: transactions_r only — 2026-03-12
+- [x] Re-add src/app/api/etsy/connect/route.ts — redirects to Etsy OAuth URL — 2026-03-12
+- [x] Re-add src/app/api/etsy/callback/route.ts — exchanges code for tokens, redirects to / — 2026-03-12
+- [x] Re-add src/app/api/etsy/status/route.ts — returns { connected: boolean } — 2026-03-12
+- [x] Add src/app/api/etsy/transactions/[id]/route.ts — paginates getShopReceiptTransactionsByListing, sums quantity, returns { units_sold } — 2026-03-12
+- [x] Details tab UI: show "X sold" in header; if not connected show "Connect Etsy for sales data →" link — 2026-03-12
+- [x] ETSY_REDIRECT_URI already set in .env.local — 2026-03-12
+
+### Review — Re-add OAuth for Transactions 2026-03-12
+
+#### What was built
+- **etsy-client.ts** — Added PKCE helpers (`generatePKCE`, `getCodeVerifier`), token storage (`loadTokens`, `saveTokens`), auto-refresh (`refreshAccessToken`, `getValidToken`), `isConnected()`, `getAuthUrl()` (scope: `transactions_r`), `exchangeCodeForTokens()`, `oauthFetch()`, and `getListingUnitsSold()` (paginates transactions, sums `quantity`).
+- **connect/route.ts** (NEW) — GET redirects to Etsy OAuth URL.
+- **callback/route.ts** (NEW) — GET exchanges `code`+`state` for tokens, stores to `data/etsy-tokens.json`, redirects to `/`.
+- **status/route.ts** (NEW) — GET returns `{ connected: boolean }`.
+- **transactions/[id]/route.ts** (NEW) — GET returns `{ units_sold }` or `{ error: "not_connected" }` (401).
+- **page.tsx** — `DetailPanel` fetches `/api/etsy/transactions/[id]` on listing open; shows "X sold" in header when connected, or "Connect Etsy for sales data →" link (points to `/api/etsy/connect`) when not.
+
+#### Verification
+- Build passes: 15 routes, 0 errors ✅
+- `GET /api/etsy/status` → `{"connected":false}` ✅
+- `GET /api/etsy/transactions/4447796840` → `{"error":"not_connected"}` (401) ✅
+- `GET /api/etsy/connect` → 307 to `https://www.etsy.com/oauth/connect` with `scope=transactions_r`, `redirect_uri=https://etsy.bornganic.com/api/etsy/callback`, valid PKCE challenge ✅
+
+#### Notes
+- OAuth flow is only used for transactions. All listing reads continue to use API key only (no change to existing behaviour).
+- User must visit `/api/etsy/connect` once to authorise and store tokens. After that, units sold loads automatically per listing.
+
+---
+
+## Review — Description Shrink + Views Label 2026-03-12
+
+### What was built
+- **Description block** — `src/app/page.tsx` line 259: added `max-h-40 overflow-y-auto` to description `<p>` — shrinks to ~160px, scrollable.
+- **Views label** — Updated 3 occurrences: detail panel header (line 215), listing card in left panel (line 1110), competitor card in keywords panel (line 711). All now read "X views (lifetime)".
+
+### Verification
+- Build passes ✅
+- Etsy API confirmed: `views` field is lifetime cumulative, tabulated nightly, active listings only.
 
 ---
 

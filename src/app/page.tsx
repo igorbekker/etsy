@@ -120,6 +120,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [recsGeneratedAt, setRecsGeneratedAt] = useState<string | null>(null);
   const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
   const [keywordsSaved, setKeywordsSaved] = useState(false);
+  const [unitsSold, setUnitsSold] = useState<number | "not_connected" | null>(null);
 
   useEffect(() => {
     setActiveTab("details");
@@ -128,9 +129,17 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setRecsGeneratedAt(null);
     setKeywords({ primary: "", secondary: ["", ""] });
     setKeywordsSaved(false);
+    setUnitsSold(null);
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
+      .catch(() => {});
+    fetch(`/api/etsy/transactions/${listing.listing_id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error === "not_connected") setUnitsSold("not_connected");
+        else if (typeof data.units_sold === "number") setUnitsSold(data.units_sold);
+      })
       .catch(() => {});
   }, [listing.listing_id]);
 
@@ -212,8 +221,13 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
             </h2>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-400">
               <span className="text-white font-medium">{formatPrice(listing.price)}</span>
-              <span>{listing.views} views</span>
+              <span>{listing.views} views (lifetime)</span>
               <span>Qty: {listing.quantity}</span>
+              {unitsSold === "not_connected" ? (
+                <a href="/api/etsy/connect" className="text-orange-400 hover:text-orange-300 text-xs">Connect Etsy for sales data →</a>
+              ) : unitsSold !== null ? (
+                <span>{unitsSold} sold</span>
+              ) : null}
             </div>
             <a
               href={listing.url}
@@ -256,7 +270,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
           <>
             <section>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</h3>
-              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-800 border border-gray-700 p-3 rounded-lg">
+              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-800 border border-gray-700 p-3 rounded-lg max-h-40 overflow-y-auto">
                 {listing.description}
               </p>
             </section>
@@ -708,7 +722,7 @@ function KeywordsPanel() {
                       </a>
                       <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                         <span>${comp.price.toFixed(2)}</span>
-                        <span>{comp.views} views</span>
+                        <span>{comp.views} views (lifetime)</span>
                       </div>
                     </div>
                   </div>
@@ -1107,7 +1121,7 @@ export default function Dashboard() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-100 leading-snug line-clamp-2">{listing.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatPrice(listing.price)} · {listing.views} views</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatPrice(listing.price)} · {listing.views} views (lifetime)</p>
                     </div>
                   </button>
                 );
