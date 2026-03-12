@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import type { AIRecommendations } from "@/lib/ai-suggestions";
+import type { CompetitorInsights } from "@/lib/keyword-research";
 
 const CACHE_FILE = path.join(process.cwd(), "data", "listing-recommendations.json");
 
 interface CacheEntry {
   recommendations: AIRecommendations;
+  competitorInsights?: CompetitorInsights;
   generatedAt: string;
 }
 
@@ -40,10 +42,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = await request.json() as { recommendations: AIRecommendations };
+  const body = await request.json() as { recommendations: AIRecommendations; competitorInsights?: CompetitorInsights };
   const store = readStore();
   store[id] = {
     recommendations: body.recommendations,
+    competitorInsights: body.competitorInsights,
     generatedAt: new Date().toISOString(),
   };
   writeStore(store);

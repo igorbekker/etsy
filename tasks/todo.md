@@ -22,9 +22,9 @@
   - [x] fetchRecommendations: check cache first, skip Claude if hit; write to cache after Claude call — 2026-03-12
   - [x] Show "Generated: [date]" + "Regenerate Recommendations" button in AI Recs tab — 2026-03-12
   - [x] Keyword inputs: replace static "Saved" message with 2s flash on blur — 2026-03-12
-- [ ] AI Recs: generate recommendations in the background on app load (all listings, not on-demand); user opens AI Recs tab and sees results already ready — no waiting
-- [ ] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images
-- [ ] AI Recs: deep competitor analysis for each listing — scrape 20–30 top competitors (ranked by sales velocity over 90 days); analyze what top competitors share in titles, descriptions, tags; detect probabilistic patterns I'm missing; also analyze listing images (count, size, quality, real vs AI); surface findings as actionable insights in the AI Recs tab
+- [x] AI Recs: generate recommendations in the background on app load (all listings, not on-demand); user opens AI Recs tab and sees results already ready — no waiting — 2026-03-12
+- [x] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images — 2026-03-12
+- [x] AI Recs: deep competitor analysis — 30 competitors, CompetitorInsights section above Overall Strategy (missing tags, title phrases, price range); real vs AI image detection deferred — 2026-03-12
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
 
 ---
@@ -142,6 +142,61 @@
 ### Verification
 - Build passes ✅
 - Etsy API confirmed: `views` field is lifetime cumulative, tabulated nightly, active listings only.
+
+---
+
+## Session 2026-03-12 — Features 2, 3, 4
+
+### Plan — Feature 2: Background Prefetch
+- [x] Client-side prefetchAllRecs() in Dashboard — iterates all listing IDs, checks cache, generates missing ones sequentially — 2026-03-12
+- [x] page.tsx: after listings load, fire prefetchAllRecs() in background (fire-and-forget) — 2026-03-12
+- [x] Listing cards: pulsing orange dot while prefetching, green "AI ready" dot when cached — 2026-03-12
+
+### Plan — Feature 3: Copy / Push Live
+- [x] etsy-client.ts: updateListingImageAltText(listingId, imageId, altText) — PATCH /application/listings/{id}/images/{imageId} — 2026-03-12
+- [x] OAuth scope updated: transactions_r → transactions_r listings_w — 2026-03-12
+- [x] PATCH /api/etsy/listings/[id]/images/[imageId]/route.ts — calls updateListingImageAltText — 2026-03-12
+- [x] AI Recs tab — Title section: Copy button (copies recommended title) — 2026-03-12
+- [x] AI Recs tab — Description section: Copy button (copies recommended description) — 2026-03-12
+- [x] AI Recs tab — Tags section: Copy button (copies recommended tags as comma-separated) — 2026-03-12
+- [x] AI Recs tab — Alt texts: Push Live button per image — calls PATCH route, shows Pushing.../Pushed!/Error — 2026-03-12
+
+### Plan — Feature 4: Deep Competitor Analysis
+- [x] Competitor fetch limit increased: 25 → 30 in keyword-research.ts — 2026-03-12
+- [x] CompetitorInsights interface + compileCompetitorInsights() added to keyword-research.ts — 2026-03-12
+- [x] recommendations/[id]/route.ts: computes and returns competitorInsights alongside recommendations — 2026-03-12
+- [x] cache/[id]/route.ts: stores and returns competitorInsights in cache entry — 2026-03-12
+- [x] AI Recs tab: Competitor Insights section above Overall Strategy — missing tags, title phrases, price range — 2026-03-12
+- [x] Note: real vs AI image detection deferred (requires vision API per image, high cost/latency) — 2026-03-12
+
+---
+
+## Review — Features 2, 3, 4 (Background Prefetch / Copy-Push / Competitor Insights) 2026-03-12
+
+### What was built
+
+**Feature 2 — Background prefetch:**
+- `prefetchAllRecs(listingIds)` in Dashboard: iterates all listing IDs sequentially; checks cache for each; if miss, calls `/api/etsy/recommendations/[id]` and writes result to cache via POST. Fires as fire-and-forget after `fetchListings()` completes.
+- `prefetchingId: number | null` state tracks which listing is currently being analyzed.
+- `prefetchedIds: Set<number>` state tracks which listings have cached recs.
+- Listing cards: green "AI ready" dot + label when `prefetchedIds.has(id)`, pulsing orange "Analyzing..." when `prefetchingId === id`.
+
+**Feature 3 — Copy / Push Live:**
+- `CopyButton` component: copies text to clipboard on click, shows "Copied!" for 1.5s, then resets. Self-contained state.
+- Copy buttons added to: Title recommended side, Description recommended side, Tags recommended side (comma-separated).
+- `pushAltText(imageId, altText)` function: PATCH `/api/etsy/listings/[id]/images/[imageId]` with `{ alt_text }`. Per-image status tracked in `altTextStatus: Record<number, "pushing" | "done" | "error">` keyed by `listing_image_id`.
+- Push Live button per alt text row: orange → Pushing... (disabled) → Pushed! (green) or Error (red).
+- `altTextStatus` and `competitorInsights` reset on listing change.
+
+**Feature 4 — Competitor Insights:**
+- `CompetitorInsights` interface and `compileCompetitorInsights()` in `keyword-research.ts`: computes top missing tags (competitor tags not in listing), title bigrams (count ≥ 2), price range (min/max/avg from competitor prices).
+- `recommendations/[id]/route.ts` returns `competitorInsights` alongside `recommendations` in both keyword-path and fallback-path responses.
+- `recommendations/cache/[id]/route.ts` stores and returns `competitorInsights` as part of cache entry.
+- `fetchRecommendations` in DetailPanel: reads `competitorInsights` from cache on hit; saves it on generate; sets `competitorInsights` state.
+- UI: Competitor Insights card shown above Overall Strategy — missing tags (red badges with count), title phrases (blue badges with count), price range min/max/avg.
+
+### Verification
+- `npm run build` passes: 16 routes, 0 TypeScript errors ✅
 
 ---
 

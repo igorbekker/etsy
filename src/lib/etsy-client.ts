@@ -70,7 +70,7 @@ export function getAuthUrl(): string {
     response_type: "code",
     client_id: ETSY_API_KEY,
     redirect_uri: ETSY_REDIRECT_URI,
-    scope: "transactions_r",
+    scope: "transactions_r listings_w",
     state,
     code_challenge,
     code_challenge_method: "S256",
@@ -139,18 +139,20 @@ async function getValidToken(): Promise<string> {
 
 // --- Authenticated Fetch (OAuth bearer token) ---
 
-async function oauthFetch(endpoint: string): Promise<Response> {
+async function oauthFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const token = await getValidToken();
   const res = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
     headers: {
       Authorization: `Bearer ${token}`,
       "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
+      ...(options.headers as Record<string, string>),
     },
   });
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("retry-after") || "5");
     await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return oauthFetch(endpoint);
+    return oauthFetch(endpoint, options);
   }
   return res;
 }
@@ -308,6 +310,19 @@ export async function searchListings(
 }
 
 // --- Transactions (requires OAuth transactions_r scope) ---
+
+export async function updateListingImageAltText(
+  listingId: number,
+  imageId: number,
+  altText: string
+): Promise<void> {
+  const res = await oauthFetch(`/application/listings/${listingId}/images/${imageId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ alt_text: altText }),
+  });
+  if (!res.ok) throw new Error(`Failed to update alt text: ${await res.text()}`);
+}
 
 export async function getListingUnitsSold(listingId: number): Promise<number> {
   let unitsSold = 0;

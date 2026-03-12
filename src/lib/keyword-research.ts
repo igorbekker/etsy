@@ -65,9 +65,58 @@ export async function getAutocompleteSuggestions(
 
 // --- Competitor Analysis ---
 
+export interface CompetitorInsights {
+  competitorCount: number;
+  topMissingTags: { tag: string; count: number }[];
+  topTitlePhrases: { phrase: string; count: number }[];
+  priceRange: { min: number; max: number; avg: number };
+}
+
+export function compileCompetitorInsights(
+  listingTags: string[],
+  competitors: CompetitorAnalysis[],
+  tagFrequency: { tag: string; count: number }[]
+): CompetitorInsights {
+  const myTags = new Set(listingTags.map((t) => t.toLowerCase().trim()));
+
+  const topMissingTags = tagFrequency
+    .filter(({ tag }) => !myTags.has(tag))
+    .slice(0, 10);
+
+  // Bigram frequency from competitor titles
+  const bigramCounts = new Map<string, number>();
+  for (const c of competitors) {
+    const words = c.title
+      .toLowerCase()
+      .split(/[\s,|/\-–—]+/)
+      .filter((w) => w.length > 2);
+    for (let i = 0; i < words.length - 1; i++) {
+      const bigram = `${words[i]} ${words[i + 1]}`;
+      bigramCounts.set(bigram, (bigramCounts.get(bigram) ?? 0) + 1);
+    }
+  }
+  const topTitlePhrases = [...bigramCounts.entries()]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([phrase, count]) => ({ phrase, count }));
+
+  const prices = competitors.map((c) => c.price).filter((p) => p > 0);
+  const priceRange =
+    prices.length > 0
+      ? {
+          min: Math.min(...prices),
+          max: Math.max(...prices),
+          avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+        }
+      : { min: 0, max: 0, avg: 0 };
+
+  return { competitorCount: competitors.length, topMissingTags, topTitlePhrases, priceRange };
+}
+
 export async function analyzeCompetitors(
   keyword: string,
-  limit = 25
+  limit = 30
 ): Promise<CompetitorAnalysis[]> {
   const { results } = await searchListings(keyword, limit);
 

@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { getListing } from "@/lib/etsy-client";
 import { generateListingRecommendations } from "@/lib/ai-suggestions";
-import { performKeywordResearch } from "@/lib/keyword-research";
+import { performKeywordResearch, compileCompetitorInsights } from "@/lib/keyword-research";
 import { DEMO_MODE, getMockRecommendations } from "@/lib/mock-data";
 
 const KEYWORDS_FILE = path.join(process.cwd(), "data", "listing-keywords.json");
@@ -100,7 +100,12 @@ export async function GET(
         mergedCompetitors,
         keywordData
       );
-      return NextResponse.json({ recommendations });
+      const competitorInsights = compileCompetitorInsights(
+        listing.tags ?? [],
+        mergedCompetitors,
+        mergedTagFrequency
+      );
+      return NextResponse.json({ recommendations, competitorInsights });
     }
 
     // Fallback: no saved keywords — use title words for competitor search
@@ -114,7 +119,12 @@ export async function GET(
     const competitors = fallbackResearch.competitors.filter((c) => c.listing_id !== listingId);
 
     const recommendations = await generateListingRecommendations(listing, competitors);
-    return NextResponse.json({ recommendations });
+    const competitorInsights = compileCompetitorInsights(
+      listing.tags ?? [],
+      competitors,
+      fallbackResearch.tagFrequency
+    );
+    return NextResponse.json({ recommendations, competitorInsights });
 
   } catch (error) {
     console.error(`Failed to generate recommendations for ${id}:`, error);

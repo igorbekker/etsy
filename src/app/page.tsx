@@ -53,6 +53,13 @@ interface AIRecommendations {
   overallStrategy: string;
 }
 
+interface CompetitorInsights {
+  competitorCount: number;
+  topMissingTags: { tag: string; count: number }[];
+  topTitlePhrases: { phrase: string; count: number }[];
+  priceRange: { min: number; max: number; avg: number };
+}
+
 interface KeywordResult {
   seedKeyword: string;
   autocompleteSuggestions: string[];
@@ -105,6 +112,26 @@ function scoreBar(ratio: number) {
   return "bg-red-500";
 }
 
+// --- Copy Button ---
+
+function CopyButton({ text, className }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text).catch(() => {});
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className={`px-2 py-1 text-xs rounded transition-colors flex-shrink-0 ${
+        copied ? "bg-green-700 text-green-200" : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+      } ${className ?? ""}`}
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
 // --- Detail Panel ---
 
 interface Keywords {
@@ -121,6 +148,8 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
   const [keywordsSaved, setKeywordsSaved] = useState(false);
   const [unitsSold, setUnitsSold] = useState<number | "not_connected" | null>(null);
+  const [competitorInsights, setCompetitorInsights] = useState<CompetitorInsights | null>(null);
+  const [altTextStatus, setAltTextStatus] = useState<Record<number, "pushing" | "done" | "error">>({});
 
   useEffect(() => {
     setActiveTab("details");
@@ -130,6 +159,8 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setKeywords({ primary: "", secondary: ["", ""] });
     setKeywordsSaved(false);
     setUnitsSold(null);
+    setCompetitorInsights(null);
+    setAltTextStatus({});
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -165,6 +196,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
         if (cacheData.recommendations) {
           setRecommendations(cacheData.recommendations);
           setRecsGeneratedAt(cacheData.generatedAt);
+          if (cacheData.competitorInsights) setCompetitorInsights(cacheData.competitorInsights);
           return;
         }
       } catch {
@@ -182,17 +214,33 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       }
       const data = await res.json();
       setRecommendations(data.recommendations);
+      if (data.competitorInsights) setCompetitorInsights(data.competitorInsights);
       // Write to persistent cache
       await fetch(`/api/etsy/recommendations/cache/${listing.listing_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recommendations: data.recommendations }),
+        body: JSON.stringify({ recommendations: data.recommendations, competitorInsights: data.competitorInsights }),
       });
       setRecsGeneratedAt(new Date().toISOString());
     } catch (err) {
       setRecsError(err instanceof Error ? err.message : "Failed to generate recommendations");
     } finally {
       setRecsLoading(false);
+    }
+  }
+
+  async function pushAltText(imageId: number, altText: string) {
+    setAltTextStatus((prev) => ({ ...prev, [imageId]: "pushing" }));
+    try {
+      const res = await fetch(`/api/etsy/listings/${listing.listing_id}/images/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alt_text: altText }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setAltTextStatus((prev) => ({ ...prev, [imageId]: "done" }));
+    } catch {
+      setAltTextStatus((prev) => ({ ...prev, [imageId]: "error" }));
     }
   }
 
@@ -440,6 +488,45 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
             )}
             {recommendations && (
               <>
+                {competitorInsights && (
+                  <div className="p-4 bg-gray-800 border border-gray-700 rounded-xl space-y-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Competitor Insights ({competitorInsights.competitorCount} analyzed)
+                    </p>
+                    {competitorInsights.topMissingTags.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1.5">Tags you&apos;re missing (used by competitors)</p>
+                        <div className="flex flex-wrap gap-1">
+                          {competitorInsights.topMissingTags.slice(0, 8).map(({ tag, count }) => (
+                            <span key={tag} className="px-2 py-0.5 bg-red-900/30 border border-red-800/40 text-red-300 text-xs rounded">
+                              {tag} <span className="text-red-500/70">{count}x</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {competitorInsights.topTitlePhrases.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1.5">Common title phrases in top listings</p>
+                        <div className="flex flex-wrap gap-1">
+                          {competitorInsights.topTitlePhrases.slice(0, 6).map(({ phrase, count }) => (
+                            <span key={phrase} className="px-2 py-0.5 bg-blue-900/30 border border-blue-800/40 text-blue-300 text-xs rounded">
+                              {phrase} <span className="text-blue-500/70">{count}x</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Competitor price range</p>
+                      <p className="text-sm text-gray-300">
+                        ${competitorInsights.priceRange.min.toFixed(2)} – ${competitorInsights.priceRange.max.toFixed(2)}
+                        <span className="text-gray-500 text-xs ml-2">(avg ${competitorInsights.priceRange.avg.toFixed(2)})</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-4 bg-orange-900/20 border border-orange-800/30 rounded-xl">
                   <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1">Overall Strategy</p>
                   <p className="text-sm text-gray-300">{recommendations.overallStrategy}</p>
@@ -463,7 +550,10 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                         <p className="text-sm text-gray-300 whitespace-pre-wrap max-h-48 overflow-y-auto">{left}</p>
                       </div>
                       <div className="p-3">
-                        <p className="text-xs text-green-500 uppercase tracking-wider mb-2">Recommended</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-green-500 uppercase tracking-wider">Recommended</p>
+                          <CopyButton text={right} />
+                        </div>
                         <p className="text-sm text-white whitespace-pre-wrap max-h-48 overflow-y-auto">{right}</p>
                       </div>
                     </div>
@@ -485,7 +575,10 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                       </div>
                     </div>
                     <div className="p-3">
-                      <p className="text-xs text-green-500 uppercase tracking-wider mb-2">Recommended ({recommendations.tags.recommended.length}/13)</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-green-500 uppercase tracking-wider">Recommended ({recommendations.tags.recommended.length}/13)</p>
+                        <CopyButton text={recommendations.tags.recommended.join(", ")} />
+                      </div>
                       <div className="flex flex-wrap gap-1">
                         {recommendations.tags.recommended.map((tag, i) => {
                           const isNew = !recommendations.tags.current.includes(tag);
@@ -506,18 +599,38 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                       <p className="text-sm font-medium text-white">Image Alt Text</p>
                     </div>
                     <div className="divide-y divide-gray-700">
-                      {recommendations.altTexts.map((alt, i) => (
-                        <div key={i} className="grid grid-cols-2 divide-x divide-gray-700">
-                          <div className="p-3">
-                            <p className="text-xs text-gray-500 mb-1">Image {alt.imageIndex + 1} — Current</p>
-                            <p className="text-sm text-gray-300">{alt.current || "(empty)"}</p>
+                      {recommendations.altTexts.map((alt, i) => {
+                        const imageId = listing.images[alt.imageIndex]?.listing_image_id;
+                        const status = imageId !== undefined ? altTextStatus[imageId] : undefined;
+                        return (
+                          <div key={i} className="grid grid-cols-2 divide-x divide-gray-700">
+                            <div className="p-3">
+                              <p className="text-xs text-gray-500 mb-1">Image {alt.imageIndex + 1} — Current</p>
+                              <p className="text-sm text-gray-300">{alt.current || "(empty)"}</p>
+                            </div>
+                            <div className="p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs text-green-500">Recommended</p>
+                                {imageId !== undefined && (
+                                  <button
+                                    onClick={() => pushAltText(imageId, alt.recommended)}
+                                    disabled={status === "pushing" || status === "done"}
+                                    className={`px-2 py-1 text-xs rounded transition-colors flex-shrink-0 ${
+                                      status === "done" ? "bg-green-700 text-green-200" :
+                                      status === "error" ? "bg-red-700 text-red-200" :
+                                      status === "pushing" ? "bg-gray-600 text-gray-400" :
+                                      "bg-orange-700 hover:bg-orange-600 text-white"
+                                    }`}
+                                  >
+                                    {status === "done" ? "Pushed!" : status === "error" ? "Error" : status === "pushing" ? "Pushing..." : "Push Live"}
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-sm text-white">{alt.recommended}</p>
+                            </div>
                           </div>
-                          <div className="p-3">
-                            <p className="text-xs text-green-500 mb-1">Recommended</p>
-                            <p className="text-sm text-white">{alt.recommended}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </section>
                 )}
@@ -952,6 +1065,8 @@ export default function Dashboard() {
   const [scoresLoading, setScoresLoading] = useState(false);
   const [error, setError] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("priority");
+  const [prefetchingId, setPrefetchingId] = useState<number | null>(null);
+  const [prefetchedIds, setPrefetchedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetchListings();
@@ -964,10 +1079,43 @@ export default function Dashboard() {
       const data = await res.json();
       setListings(data.listings);
       fetchScores();
+      prefetchAllRecs(data.listings.map((l: Listing) => l.listing_id));
     } catch {
       setError("Failed to fetch listings");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function prefetchAllRecs(listingIds: number[]) {
+    for (const id of listingIds) {
+      try {
+        const cacheRes = await fetch(`/api/etsy/recommendations/cache/${id}`);
+        const cacheData = await cacheRes.json();
+        if (cacheData.recommendations) {
+          setPrefetchedIds((prev) => new Set([...prev, id]));
+          continue;
+        }
+      } catch {
+        // Cache check failed — proceed to generate
+      }
+
+      setPrefetchingId(id);
+      try {
+        const res = await fetch(`/api/etsy/recommendations/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          await fetch(`/api/etsy/recommendations/cache/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recommendations: data.recommendations, competitorInsights: data.competitorInsights }),
+          });
+          setPrefetchedIds((prev) => new Set([...prev, id]));
+        }
+      } catch {
+        // Prefetch failed — non-critical, user can still generate on demand
+      }
+      setPrefetchingId(null);
     }
   }
 
@@ -1097,6 +1245,8 @@ export default function Dashboard() {
               {getSortedListings().map((listing) => {
                 const score = scores[listing.listing_id];
                 const isSelected = listing.listing_id === selectedId;
+                const isCached = prefetchedIds.has(listing.listing_id);
+                const isPrefetching = prefetchingId === listing.listing_id;
                 return (
                   <button
                     key={listing.listing_id}
@@ -1121,7 +1271,21 @@ export default function Dashboard() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-100 leading-snug line-clamp-2">{listing.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatPrice(listing.price)} · {listing.views} views (lifetime)</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-gray-500">{formatPrice(listing.price)} · {listing.views} views (lifetime)</p>
+                        {isCached && (
+                          <span className="flex items-center gap-1 text-xs text-green-500 flex-shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                            AI ready
+                          </span>
+                        )}
+                        {isPrefetching && (
+                          <span className="flex items-center gap-1 text-xs text-orange-400 flex-shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block animate-pulse" />
+                            Analyzing...
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
