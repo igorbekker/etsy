@@ -26,6 +26,9 @@ export async function PATCH(
     if (message.includes("not_connected")) {
       return NextResponse.json({ error: "not_connected" }, { status: 401 });
     }
+    if (message.includes("Resource not found")) {
+      return NextResponse.json({ error: "Permission denied — re-authorize at /api/etsy/connect to grant listings_w scope" }, { status: 403 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

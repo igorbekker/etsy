@@ -86,3 +86,7 @@
 ## 21. Don't propose building Phase 2 features when fixing bugs — just fix and move on
 **Violated.** When user reported "logs records nothing," proposed a full logs implementation plan instead of noting it's Phase 2 and moving on. User had to redirect: "move the logs comment to Phase 2."
 **Rule:** When a bug report touches a known Phase 2 placeholder, fix the actual bug reported and note the Phase 2 work as deferred. Do not propose building Phase 2 scope unless the user explicitly asks for it.
+
+## 22. Etsy returns 404 "Resource not found" for missing OAuth scope — not 403
+**Pattern.** PATCH /listings/{id}/images/{imageId} returned 404 when the token lacked listings_w scope. GET on the same resource returned 200. Misleading error caused confusion.
+**Rule:** When an Etsy PATCH/PUT/DELETE returns 404 but GET works, suspect missing OAuth scope first. Check whether the operation requires a scope beyond what was authorized. Detect "Resource not found" in the error handler and surface a scope-specific message.

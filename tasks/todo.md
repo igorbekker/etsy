@@ -5,6 +5,7 @@
 ### Bugs
 - [x] Images tab: listing images not displaying — fixed 2026-03-12 (batch API omits images; now fetches full listing on selection via /api/etsy/listings/[id])
 - [x] AI Recs tab: recommendations never load — fixed 2026-03-12 (Claude was wrapping JSON in markdown fences; strip fences before JSON.parse in ai-suggestions.ts)
+- [x] Push Live: "Resource not found" error with no explanation — fixed 2026-03-12 (root cause: token lacks listings_w scope; Etsy returns 404 for missing scope; error message now explains re-auth required)
 
 ### Features
 - [x] PRIORITY: Ground all AI recommendations in real keyword research — 2026-03-12
@@ -26,6 +27,24 @@
 - [x] AI Recs: deep competitor analysis — 30 competitors, CompetitorInsights section above Overall Strategy (missing tags, title phrases, price range); real vs AI image detection deferred — 2026-03-12
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
+
+---
+
+## Review — Push Live "Resource not found" bug fix 2026-03-12
+
+### Root cause
+Etsy returns 404 "Resource not found" (instead of 401/403) when a PATCH request is made without the `listings_w` OAuth scope. The token in use was issued before `listings_w` was added to the scope. Refreshing a token does not change scope — user must re-authorize via `/api/etsy/connect` to get a new token with the updated scope.
+
+### What was fixed
+- `src/app/api/etsy/listings/[id]/images/[imageId]/route.ts`: Added check for "Resource not found" in the caught error message — returns 403 with a clear human-readable message: "Permission denied — re-authorize at /api/etsy/connect to grant listings_w scope".
+
+### Verification
+- `curl -X PATCH` on a known image with current token → `{"error": "Resource not found"}` (confirmed 404 from Etsy) ✅
+- `curl -X GET` on same image → 200 with full image data (image exists, it's a scope issue not a real 404) ✅
+- Build passes: 17 routes, 0 errors ✅
+
+### User action required
+Visit `/api/etsy/connect` to re-authorize with `listings_w` scope. Push Live will work after that.
 
 ---
 
