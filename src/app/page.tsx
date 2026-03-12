@@ -633,7 +633,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                     </div>
                     <div className="divide-y divide-gray-700">
                       {recommendations.altTexts.map((alt, i) => {
-                        const imageId = listing.images[alt.imageIndex]?.listing_image_id;
+                        const imageId = listing.images?.[alt.imageIndex]?.listing_image_id;
                         const status = imageId !== undefined ? altTextStatus[imageId] : undefined;
                         return (
                           <div key={i} className="grid grid-cols-2 divide-x divide-gray-700">

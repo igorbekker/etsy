@@ -290,9 +290,28 @@ Two compounding bugs:
 
 ---
 
+## Session 2026-03-12 — Fix crash on listing switch after Push Live
+
+### Plan
+- [x] page.tsx line 636: add optional chaining on listing.images — listing.images[alt.imageIndex] → listing.images?.[alt.imageIndex] — 2026-03-12
+
+### Review — Listing switch crash fix 2026-03-12
+
+#### Root cause
+`listing.images` is `undefined` during the window between listing selection and the enriched listing fetch resolving (fire-and-forget). The alt text render at line 636 accessed `listing.images[alt.imageIndex]` — when `alt.imageIndex` was e.g. `4`, this threw `Cannot read properties of undefined (reading '4')`, crashing the entire React tree.
+
+#### What was fixed
+- `src/app/page.tsx` line 636: `listing.images[alt.imageIndex]?.listing_image_id` → `listing.images?.[alt.imageIndex]?.listing_image_id`
+
+#### Verification
+- All other `listing.images[0]` accesses already guarded by `listing.images?.[0] &&` — only line 636 was unguarded ✅
+- Build passes: 17 routes, 0 TypeScript errors ✅
+
+---
+
 ## Open — In Progress
 
-- [ ] End-to-end test Push Live in browser and confirm log entry recorded
+- [ ] End-to-end test listing switch after Push Live — confirm no crash
 
 ---
 
