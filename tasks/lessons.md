@@ -1,85 +1,76 @@
 # Lessons Learned
+(Ordered by frequency of violation — most violated first)
 
-## 1. Don't over-engineer storage
-**Correction:** User pushed back on SQL database suggestion — "why do we even need a DB for this?"
-**Rule:** For single-user tools, default to the simplest storage (JSON files, env vars). Only suggest a database when there's a clear need for concurrent access, complex queries, or multi-user data.
+---
 
-## 2. Verify API claims before presenting them
-**Correction:** User said "i think it does allow for keyword data in their api. do more digging" when I initially said Etsy had no keyword data.
-**Rule:** When researching API capabilities, do a thorough deep dive before making definitive claims. Search official docs, GitHub issues, and community forums. Present findings with confidence levels, not absolutes.
+## 1. HARD STOP before committing — never skip /pre
+**Violated repeatedly.** Made code changes and restarted the app without stopping for /pre. Happened twice in one session.
+**Rule:** After ANY code change, STOP COMPLETELY. Say "Ready for /pre — please run /pre before I commit." Do not restart, do not continue. Wait for the user to type /pre.
 
-## 3. Ask about the user's existing setup before assuming
-**Correction:** User had a specific GitHub repo (`igorbekker/etsy`) already created. I initialized a local git repo without asking about their remote.
-**Rule:** When setting up git, always ask for the remote repo URL first. Don't assume it doesn't exist yet.
+## 2. Write plan to todo.md and check in BEFORE executing any multi-step task
+**Violated repeatedly.** Started executing multi-step tasks (credentials setup, Cloudflare, UI redesign) without writing a plan or checking in first.
+**Rule:** ANY task with 3+ steps = stop, write plan to todo.md, check in with user, THEN execute. No exceptions.
 
-## 4. Follow the CLAUDE.md workflow rigorously
-**Correction:** User had to ask twice "re-read the MD and check that you followed it" — revealing missed task files, missing features, and workflow violations.
-**Rule:** After completing work, systematically walk through every line of CLAUDE.md and verify compliance before declaring done. Create `tasks/todo.md` and `tasks/lessons.md` at project start, not as an afterthought.
+## 3. Update todo.md and lessons.md in real time — not at /pre
+**Violated repeatedly.** Both files were only updated during /pre, not as work happened.
+**Rule:** Mark todo.md items [x] the moment they are done. Update lessons.md the moment a correction happens — before resuming work. /pre is for verification, not first-time documentation.
 
-## 5. Don't mark tasks complete until ALL sub-items are done
-**Correction:** Marked tasks complete but dashboard was missing SEO scores, AI suggestions weren't built, side-by-side view was absent.
-**Rule:** A feature is only done when every bullet point under it in the plan is implemented and verified. Partial implementation = in_progress, not completed.
+## 4. Never mark a task complete without proving it works
+**Violated.** Marked Cloudflare Access complete without visiting the URL to confirm the login gate worked.
+**Rule:** A checkbox only gets [x] after observable verification. For external-facing features, open the URL and confirm behavior.
 
-## 7. Wrap all JSON.parse() calls from external sources in try-catch
-**Pattern found:** Both `generateListingRecommendations` and `generateKeywordSuggestions` called `JSON.parse(textContent.text)` with no error handling. Any malformed AI response would crash the API route with a 500.
-**Rule:** Any `JSON.parse()` on data from an external source (AI, API, user input) must be wrapped in try-catch. Internal/hardcoded JSON is fine without it.
+## 5. Self-verify LINE BY LINE, not section by section
+**Violated 4 times in one session.** Each re-read found a new gap: missing files, outdated structure, backend without frontend wiring, missing UI fields.
+**Rule:** Check EVERY LINE of CLAUDE.md. For each bullet: (a) does the backend implement it? (b) does the frontend expose it? (c) does the file structure doc match? Backend endpoint without UI = NOT done.
 
-## 8. Input validation must run before feature flags and mode checks
-**Pattern found:** In `keywords/research/route.ts`, the `!keyword` validation ran after `if (DEMO_MODE)`, meaning demo mode returned `seedKeyword: undefined` on missing input.
-**Rule:** Validate inputs at the very top of the handler, before any branching (DEMO_MODE, feature flags, connection checks). Invalid input should always return 400 immediately.
+## 6. Clarify auth/UX intent before building — don't assume
+**Violated.** Built a full username/password login page when user wanted Cloudflare email OTP only.
+**Rule:** Before building any auth system, confirm: (a) what the login method is, (b) whether the app delegates entirely to an external provider. One question upfront saves a full rework.
 
-## 9. Never use recursive self-calls as a fallback
-**Pattern found:** `getMockRecommendations(listingId)` called `getMockRecommendations(1001)` as its not-found fallback — infinite recursion if listing 1001 is ever removed.
-**Rule:** Fallbacks must use direct data access (`MOCK_LISTINGS[0]`), not recursive calls. If there's truly no data, throw a clear error rather than silently loop.
+## 7. Test API access before building OAuth — public endpoints may not need it
+**Violated.** Built full OAuth 2.0 + PKCE flow for Etsy. A single curl test would have shown the API key alone was sufficient.
+**Rule:** Before building any auth/OAuth flow, run a curl test with just the API key first. Only add OAuth if the key-only request fails.
 
-## 10. Switch statements on typed unions still need a default return
-**Pattern found:** `getSortedListings()` covered all 3 `SortMode` cases but had no `default` branch. TypeScript (depending on strictness settings) may not guarantee exhaustiveness and could infer `undefined` return type.
-**Rule:** Always add a `default: return sorted` to switch statements that return values, even if the union appears exhaustive. Prevents TypeScript inference issues and runtime undefined returns.
+## 8. Check ~/.bashrc and ~/.profile for stored secrets before asking the user
+**Violated.** Asked user for ANTHROPIC_API_KEY when it was already stored in ~/.bashrc.
+**Rule:** Before asking for any API key or secret, grep ~/.bashrc and ~/.profile first.
 
-## 11. Update lessons.md — don't wait to be reminded
-**Pattern found:** After fixing bugs in a session, lessons.md was not updated until the user explicitly asked "fix it."
-**Rule:** After ANY correction or bug fix, update `tasks/lessons.md` immediately — before committing. This is part of the Definition of Done per CLAUDE.md.
+## 9. Cloudflare API token scope must match the operations you're calling
+**Violated.** Token had DNS/tunnel permissions but not Access permissions — caused repeated 10000 auth errors.
+**Rule:** Before making Cloudflare API calls, verify the token has the exact permission scopes needed. Check token permissions before attempting API calls, not after failures.
 
-## 21. Test API access before building OAuth — public endpoints may not need it
-**Violation:** Built a full OAuth 2.0 + PKCE flow for Etsy. A simple curl test would have shown the API key alone is sufficient for public shop listing data. Wasted significant effort.
-**Rule:** Before building any auth/OAuth flow for an API, run a curl test with just the API key first. Only add OAuth if the key-only request fails.
+## 10. Don't mark tasks complete until ALL sub-items are done
+**Violated.** Marked features complete while dashboard was missing SEO scores, AI suggestions, and side-by-side view.
+**Rule:** A feature is done only when every bullet point is implemented AND verified. Partial = in_progress.
 
-## 19. HARD STOP before committing — never skip /pre
-**Violation (repeated this session):** Made code changes (middleware.ts, Cloudflare Access config) and restarted the app without stopping to say "Ready for /pre — please run /pre before I commit." Violated CLAUDE.md commit protocol twice in the same session.
-**Rule:** After ANY code change that will be committed, STOP COMPLETELY. Say "Ready for /pre — please run /pre before I commit." Do not restart the app, do not continue. Wait for the user to type /pre.
+## 11. Don't over-engineer storage
+**Violated.** Suggested SQL database for a single-user tool.
+**Rule:** Default to simplest storage (JSON files, env vars). Only suggest a database when there's a clear need for concurrent access or complex queries.
 
-## 20. Clarify auth UX intent before building — don't assume
-**Violation:** Built a username/password login page. User wanted Cloudflare email OTP as the only auth. Never asked which login method they wanted.
-**Rule:** Before building any auth system, explicitly confirm: (a) what the login method is, (b) whether the app needs its own login or delegates entirely to an external provider. One question upfront saves a full rework.
+## 12. Verify API claims before presenting them as fact
+**Violated.** Stated Etsy had no keyword API data without thorough research.
+**Rule:** Do a deep dive before making definitive API capability claims. Present findings with confidence levels, not absolutes.
 
-## 14. Must enter plan mode and write todo.md plan BEFORE executing any multi-step task
-**Violation:** Set up credentials + Cloudflare Tunnel + Access without entering plan mode or writing a plan first. Started executing immediately.
-**Rule:** ANY task with 3+ steps = stop, enter plan mode, write plan to todo.md, check in with user, THEN execute. No exceptions.
+## 13. Ask about existing setup before assuming
+**Violated.** Initialized a local git repo without asking about the existing remote.
+**Rule:** Before any git setup, ask for the remote repo URL. Don't assume it doesn't exist.
 
-## 15. Update todo.md in real time, not at the end
-**Violation:** Only updated todo.md during /pre, not as tasks completed.
-**Rule:** Mark items [x] in todo.md the moment they are done, not retroactively at /pre time.
+## 14. Wrap all JSON.parse() on external data in try-catch
+**Pattern.** AI response parsing had no error handling — any malformed response would 500.
+**Rule:** Any JSON.parse() on external data (AI, API, user input) must be wrapped in try-catch.
 
-## 16. Update lessons.md immediately after a correction — not at /pre
-**Violation:** User pointed out ANTHROPIC_API_KEY was in ~/.bashrc. Did not update lessons.md until /pre.
-**Rule:** As soon as a correction happens, stop, open lessons.md, add the lesson, then resume. This is non-negotiable per CLAUDE.md.
+## 15. Input validation runs first — before feature flags and mode checks
+**Pattern.** Keyword validation ran after DEMO_MODE check, causing undefined on missing input.
+**Rule:** Validate inputs at the very top of every handler, before any branching.
 
-## 17. Never mark a task complete without proving it works
-**Violation:** Marked Cloudflare Access as complete without visiting etsy.bornganic.com to confirm the Google login gate actually works.
-**Rule:** A checkbox only gets [x] after observable verification. For external-facing features, that means opening the URL and confirming behavior.
+## 16. Switch statements returning values need a default branch
+**Pattern.** getSortedListings() had no default — TypeScript could infer undefined return.
+**Rule:** Always add default: return sorted to switch statements that return values.
 
-## 18. Flag double-login UX problems immediately
-**Violation:** User said "log in using my Gmail account." Set up Cloudflare Access but left the app's own username/password login page in place — creating two login steps. Did not flag this.
-**Rule:** When a user says "log in with X," confirm whether they want X to be the ONLY login or an additional layer. If double-login is likely, surface it immediately.
+## 17. Flag double-login UX problems immediately
+**Violated.** Set up Cloudflare Access but left internal login in place — two login steps. Never flagged it.
+**Rule:** When a user says "log in with X," confirm whether that's the ONLY gate or an additional layer.
 
-## 12. Cloudflare API token must have explicit Access permissions
-**Pattern found:** Token had DNS/tunnel permissions but not "Access: Apps and Policies" — all Access API calls returned 10000 auth error even though other endpoints worked.
-**Rule:** When setting up Cloudflare Access via API, verify the token has `Access: Apps and Policies` and `Access: Organizations, Identity Providers, and Groups` at account scope before attempting API calls. Saves multiple roundtrips.
-
-## 13. Check ~/.bashrc and ~/.profile for stored secrets before asking the user
-**Pattern found:** Asked user for ANTHROPIC_API_KEY; it was already stored in ~/.bashrc.
-**Rule:** Before asking the user for any API key or secret, grep ~/.bashrc and ~/.profile first.
-
-## 6. Self-verify LINE BY LINE, not section by section
-**Correction:** User asked "re-read the MD and check" 4 consecutive times. Each time found a new gap: (1) missing workflow files + features, (2) outdated file structure, (3) backend without frontend wiring, (4) missing UI field + scoring gap.
-**Rule:** When verifying against the CLAUDE.md, check EVERY SINGLE LINE — not just section headers. For each bullet point: (a) does the backend implement it? (b) does the frontend expose it to the user? (c) does the file structure doc match? A backend endpoint without a frontend button is NOT done. A data field without UI display is NOT done.
+## 18. Never use recursive self-calls as a fallback
+**Pattern.** getMockRecommendations() called itself as not-found fallback — infinite recursion risk.
+**Rule:** Fallbacks must use direct data access, not recursive calls.

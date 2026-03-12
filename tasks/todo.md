@@ -63,13 +63,13 @@
 ## Session 2026-03-12 — Environment Setup
 
 ### Plan
-- [ ] Get Etsy API credentials from user
-- [ ] Resolve shop ID via API call
-- [ ] Generate JWT secret
-- [ ] Hash app login password
-- [ ] Get Anthropic API key
-- [ ] Create .env.local with all values
-- [ ] Run app and verify end-to-end with real Etsy data
+- [x] Get Etsy API credentials from user
+- [x] Resolve shop ID via API call
+- [x] Generate JWT secret
+- [x] Hash app login password
+- [x] Get Anthropic API key
+- [x] Create .env.local with all values
+- [x] Run app and verify end-to-end with real Etsy data
 
 ### Progress
 - [x] Obtained Etsy API key + shared secret (app: myhomebymax-api) — 2026-03-12

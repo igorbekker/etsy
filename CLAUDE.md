@@ -1,3 +1,45 @@
+# SESSION START PROTOCOL — EXECUTE THIS BEFORE ANYTHING ELSE
+
+1. Read this entire file top to bottom
+2. Read tasks/todo.md — show current open/pending tasks
+3. Read tasks/lessons.md — review all past lessons
+4. Confirm out loud: "CLAUDE.md loaded. todo.md and lessons.md reviewed. Ready."
+5. Do NOT begin any work until steps 1–4 are confirmed
+
+VIOLATIONS: If I skip todo.md, lessons.md, or any step above — stop me immediately.
+Point to the exact rule I broke. Do not apologize. Fix it on the spot.
+
+---
+
+## REQUIRED: Task Management
+
+REQUIRED: Before any task — write plan to tasks/todo.md with checkable items
+REQUIRED: Check in with user before starting implementation
+REQUIRED: Mark items complete in todo.md as you go
+REQUIRED: Add review section to tasks/todo.md before committing
+REQUIRED: After ANY user correction — update tasks/lessons.md immediately, before continuing
+REQUIRED: At session end — both files must reflect everything done this session
+
+NEVER commit without todo.md review section written
+NEVER ignore a correction without logging it to lessons.md
+NEVER start work without confirming this file was read in full
+
+---
+
+## REQUIRED: Quality Gates
+
+REQUIRED order: Edit → Verify → Commit. Never commit then verify.
+REQUIRED: Run the actual function/test and confirm output before committing
+REQUIRED: One bug = one commit. Atomic fixes, clean git history.
+REQUIRED: Run full CLAUDE.md audit on every file touched before committing
+REQUIRED: After replace_all — immediately verify the constant declaration was not self-replaced
+
+NEVER mark a task complete without proving it works
+NEVER fix data without fixing the code that wrote it
+NEVER audit only the main file — audit EVERY file changed this session
+
+---
+
 \## Workflow Orchestration
 
 
@@ -186,7 +228,7 @@ For each listing, generate actionable recommendations:
 - **Simple JWT auth** (bcryptjs + jsonwebtoken, no NextAuth)
 - **JSON files** for persistent config/data (no database)
 - **Git** for version control
-- **Railway** for hosting (persistent filesystem, no serverless timeouts)
+- **VPS** for hosting (persistent filesystem, running via `npm run start` + Cloudflare Tunnel)
 
 ## Setup
 1. `npm install`
