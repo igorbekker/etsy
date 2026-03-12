@@ -107,17 +107,36 @@ function scoreBar(ratio: number) {
 
 // --- Detail Panel ---
 
+interface Keywords {
+  primary: string;
+  secondary: [string, string];
+}
+
 function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOScore | null }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("details");
   const [recommendations, setRecommendations] = useState<AIRecommendations | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsError, setRecsError] = useState("");
+  const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
 
   useEffect(() => {
     setActiveTab("details");
     setRecommendations(null);
     setRecsError("");
+    setKeywords({ primary: "", secondary: ["", ""] });
+    fetch(`/api/listing-keywords/${listing.listing_id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setKeywords(data); })
+      .catch(() => {});
   }, [listing.listing_id]);
+
+  function saveKeywords(updated: Keywords) {
+    fetch(`/api/listing-keywords/${listing.listing_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
+  }
 
   async function fetchRecommendations() {
     setRecsLoading(true);
@@ -248,6 +267,38 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Target Keywords</h3>
+              <p className="text-xs text-gray-500 mb-3">Used to run keyword research before generating AI recommendations. Enter the keywords you are optimizing this listing for.</p>
+              <div className="space-y-2">
+                {([
+                  { label: "Primary", key: "primary" as const, placeholder: "e.g. bookend" },
+                  { label: "Secondary 1", key: 0 as const, placeholder: "e.g. book holder" },
+                  { label: "Secondary 2", key: 1 as const, placeholder: "e.g. shelf decor" },
+                ] as const).map(({ label, key, placeholder }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 w-20 flex-shrink-0">{label}</span>
+                    <input
+                      type="text"
+                      value={key === "primary" ? keywords.primary : keywords.secondary[key]}
+                      onChange={(e) => {
+                        const updated: Keywords = key === "primary"
+                          ? { ...keywords, primary: e.target.value }
+                          : { ...keywords, secondary: keywords.secondary.map((s, i) => i === key ? e.target.value : s) as [string, string] };
+                        setKeywords(updated);
+                      }}
+                      onBlur={() => saveKeywords(keywords)}
+                      placeholder={placeholder}
+                      className="flex-1 px-3 py-1.5 bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-600 rounded-lg focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                ))}
+              </div>
+              {(keywords.primary || keywords.secondary.some(Boolean)) && (
+                <p className="text-xs text-green-500 mt-2">Saved — AI recommendations will use these keywords.</p>
+              )}
             </section>
           </>
         )}

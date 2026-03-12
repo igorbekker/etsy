@@ -7,11 +7,38 @@
 - [x] AI Recs tab: recommendations never load — fixed 2026-03-12 (Claude was wrapping JSON in markdown fences; strip fences before JSON.parse in ai-suggestions.ts)
 
 ### Features
-- [ ] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file
+- [x] PRIORITY: Ground all AI recommendations in real keyword research — 2026-03-12
+  - [x] Part 1: New API route GET/POST /api/listing-keywords/[id] — reads/writes data/listing-keywords.json — 2026-03-12
+  - [x] Part 2: Keywords UI on Details tab — 3 manual text inputs (primary + 2 secondary), load on open, save on blur — 2026-03-12
+  - [x] Part 3: Recommendations route — fetch target keywords, run performKeywordResearch, merge results, pass to Claude — 2026-03-12
+  - [x] Part 4: Enrich Claude prompt with autocomplete suggestions, tag frequency, title keywords — 2026-03-12
+- [x] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file — 2026-03-12
 - [ ] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
 - [ ] AI Recs: store recommendations to JSON file per listing (keyed by listing_id + date); load from cache on tab open instead of auto-generating; show "Regenerate Recommendations" button to explicitly refresh
+- [ ] AI Recs: generate recommendations in the background on app load (all listings, not on-demand); user opens AI Recs tab and sees results already ready — no waiting
+- [ ] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
+
+---
+
+## Review — P1: Keyword-Grounded Recommendations 2026-03-12
+
+### What was built
+- **Part 1** — `src/app/api/listing-keywords/[id]/route.ts` (NEW): GET reads `data/listing-keywords.json` returning `{ primary, secondary }` for the listing; POST writes it. Creates `data/` dir if missing.
+- **Part 2** — `src/app/page.tsx`: Added `keywords` state in `DetailPanel`, loads on listing open via GET, saves on input blur via POST. Three plain text inputs (Primary, Secondary 1, Secondary 2) displayed in a "Target Keywords" section on the Details tab below the Properties grid.
+- **Part 3** — `src/app/api/etsy/recommendations/[id]/route.ts`: Now reads saved keywords before calling Claude. If primary keyword exists, runs `performKeywordResearch()` in parallel for all seeds, merges tagFrequency (sum counts), autocompleteSuggestions (dedupe), competitors (dedupe by listing_id). Falls back to title-word search if no keywords saved.
+- **Part 4** — `src/lib/ai-suggestions.ts`: Updated `generateListingRecommendations` signature to accept optional `keywordData?`. Claude prompt now includes `## Keyword Research` section with autocomplete suggestions, top competitor tags by frequency, and top title words when keyword data is present.
+
+### Verification
+- `GET /api/listing-keywords/4414203319` → `{"primary":"","secondary":["",""]}` ✅
+- `POST /api/listing-keywords/4414203319` with bookend keywords → `{"ok":true}` ✅
+- `GET /api/listing-keywords/4414203319` → `{"primary":"bookend","secondary":["book holder","shelf decor"]}` ✅
+- Build passes: 10 routes, 0 errors ✅
+
+### Notes
+- User clarified mid-plan: keywords are **manually entered by the user**, not auto-suggested by the system. Implementation matches this — inputs are blank text fields.
+- Keywords state resets when a different listing is selected (useEffect on listing_id change).
 
 ---
 

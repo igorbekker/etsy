@@ -70,3 +70,7 @@
 ## 17. Never use recursive self-calls as a fallback
 **Pattern.** getMockRecommendations() called itself as not-found fallback — infinite recursion risk.
 **Rule:** Fallbacks must use direct data access, not recursive calls.
+
+## 18. Clarify who populates inputs before building — don't assume system-filled
+**Violated.** Plan described "target keywords" UI without explicitly stating whether the system auto-fills them or the user types them manually. User had to correct mid-plan: "those should be manually entered by me, not by the system."
+**Rule:** Any input field or data entry UI — confirm upfront: is this populated by the user, the system, or both? Never build auto-fill behavior unless explicitly requested.

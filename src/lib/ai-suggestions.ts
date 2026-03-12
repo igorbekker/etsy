@@ -33,9 +33,17 @@ export interface AIRecommendations {
   overallStrategy: string;
 }
 
+interface KeywordData {
+  targetKeywords: { primary: string; secondary: string[] };
+  autocompleteSuggestions: string[];
+  tagFrequency: { tag: string; count: number }[];
+  titleKeywords: { word: string; count: number }[];
+}
+
 export async function generateListingRecommendations(
   listing: EtsyListing,
-  competitors: CompetitorAnalysis[]
+  competitors: CompetitorAnalysis[],
+  keywordData?: KeywordData
 ): Promise<AIRecommendations> {
   const competitorContext = competitors
     .slice(0, 10)
@@ -52,13 +60,28 @@ export async function generateListingRecommendations(
     )
     .join("\n");
 
+  const keywordSection = keywordData
+    ? `
+## Keyword Research (Etsy autocomplete + competitor analysis)
+Target keywords: primary="${keywordData.targetKeywords.primary}"${keywordData.targetKeywords.secondary.filter(Boolean).length ? `, secondary=${JSON.stringify(keywordData.targetKeywords.secondary.filter(Boolean))}` : ""}
+Etsy autocomplete suggestions: ${keywordData.autocompleteSuggestions.slice(0, 15).join(", ") || "none"}
+Top competitor tags by frequency: ${keywordData.tagFrequency.slice(0, 20).map(t => `"${t.tag}" (${t.count}x)`).join(", ") || "none"}
+Top words in competitor titles: ${keywordData.titleKeywords.slice(0, 15).map(w => `"${w.word}" (${w.count}x)`).join(", ") || "none"}
+
+Use this keyword data as the foundation for ALL recommendations:
+- Front-load the primary keyword in the title
+- Prioritize high-frequency competitor tags missing from this listing
+- Weave autocomplete suggestions naturally into the description
+`
+    : "";
+
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
     messages: [
       {
         role: "user",
-        content: `You are an Etsy SEO expert. Analyze this listing and provide optimization recommendations based on competitor data.
+        content: `You are an Etsy SEO expert. Analyze this listing and provide optimization recommendations based on real Etsy keyword research and competitor data.
 
 ## Current Listing
 - Title: "${listing.title}"
@@ -70,7 +93,7 @@ export async function generateListingRecommendations(
 
 ## Images
 ${imageContext}
-
+${keywordSection}
 ## Top Competitors for Similar Keywords
 ${competitorContext}
 
