@@ -157,10 +157,30 @@ Every competitor pull in the app must be driven by the listing's saved keywords 
 - OR: section inside the Details tab below the KPI boxes — discuss with user before building
 
 **Implementation steps:**
-- [ ] src/app/api/etsy/listings/[id]/benchmarks/route.ts (NEW): GET — read keywords from listing-keywords.json; if none, return { error: "no_keywords" }; fetch competitors per keyword; dedup; sort by num_favorers; compute 4 metrics; write to listing-benchmarks.json; return metrics + metadata
-- [ ] data/listing-benchmarks.json: new cache file (add to .gitignore)
-- [ ] page.tsx: new Benchmarks tab (or section) — show 4 metric cards with color-coded flags; "Run Benchmark" / "Refresh" button; "Last updated: X" timestamp; "No keywords set" prompt if applicable
-- [ ] page.tsx: invalidate benchmark cache display if listing keywords change (compare keywords_used in cache vs current keywords state)
+- [x] src/app/api/etsy/listings/[id]/benchmarks/route.ts (NEW): GET — read keywords from listing-keywords.json; if none, return { error: "no_keywords" }; fetch competitors per keyword; dedup; sort by num_favorers; compute 4 metrics; write to listing-benchmarks.json; return metrics + metadata — 2026-03-12
+- [x] data/listing-benchmarks.json: new cache file (add to .gitignore) — 2026-03-12
+- [x] page.tsx: new Benchmarks tab — show 4 metric cards with color-coded flags; "Run Benchmark" / "Refresh" button; "Last updated: X" timestamp; "No keywords set" prompt if applicable — 2026-03-12
+- [x] page.tsx: invalidate benchmark cache display if listing keywords change (compare keywords_used in cache vs current keywords state) — 2026-03-12
+
+### Review — Feature 2: Competitor Benchmarking Panel 2026-03-12
+
+#### What was built
+- **`src/lib/keyword-research.ts`** — Added `num_favorers?: number` and `image_count?: number` to `CompetitorAnalysis` interface. Made optional so existing mock data doesn't break. Updated `analyzeCompetitors` to accept `options` param (`sortOn`, `sortOrder`, `includes`) and map `num_favorers` and `image_count` from results.
+- **`src/lib/etsy-client.ts`** — Added `num_favorers?` and `images?` to `EtsySearchResult` interface. Updated `searchListings` to accept and pass through `sortOn`, `sortOrder`, `includes` options.
+- **`src/app/api/etsy/listings/[id]/benchmarks/route.ts`** (NEW) — Full computation route:
+  - Loads keywords from `data/listing-keywords.json` — returns `{ error: "no_keywords" }` if none
+  - Checks 24h cache in `data/listing-benchmarks.json`; invalidates if keywords changed
+  - Pulls top 100 competitors per keyword via `analyzeCompetitors(kw, 100, { sortOn: "score", sortOrder: "desc", includes: "images" })`
+  - Deduplicates by listing_id, excludes own listing, sorts by `num_favorers` desc, takes top 30
+  - Computes 4 metrics: price (min/p25/median/p75/max + position + flag), demand (your favorers vs comp avg %), tag coverage (top 20 consensus tags, missing tags, flag), photo count (yours vs comp avg, flag)
+  - Writes result to cache, returns with `from_cache` flag
+- **`page.tsx`** — Added `BenchmarkResult` and `BenchmarkMetrics` interfaces. New Benchmarks tab (5th tab, alongside Details/Images/SEO Score/AI Recs). `fetchBenchmarks(forceRefresh)` function. Full UI: 4 metric cards, price range bar, demand 3-column layout, tag coverage with missing tag orange badges, photo count comparison. Keyword stale warning, no-keywords prompt. All state resets on listing switch.
+- **`.gitignore`** — Added `data/` directory.
+
+#### Verification
+- Build passes: 0 TypeScript errors ✅
+- TypeScript strict-mode issues found and fixed: `b.num_favorers` possibly undefined in sort (fixed with `?? 0`), `c.num_favorers` and `c.image_count` possibly undefined in reduce (fixed with `?? 0`)
+- Route: `GET /api/etsy/listings/[id]/benchmarks` — registered in build output ✅
 
 ---
 

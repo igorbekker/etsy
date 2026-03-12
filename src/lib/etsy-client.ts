@@ -288,17 +288,20 @@ export interface EtsySearchResult {
   price: { amount: number; divisor: number; currency_code: string };
   taxonomy_id: number;
   views: number;
+  num_favorers?: number;
+  images?: { listing_image_id: number }[];
   url: string;
 }
 
 export async function searchListings(
   keywords: string,
-  limit = 25
+  limit = 25,
+  options: { sortOn?: string; sortOrder?: string; includes?: string } = {}
 ): Promise<{ results: EtsySearchResult[]; count: number }> {
-  const params = new URLSearchParams({
-    keywords,
-    limit: limit.toString(),
-  });
+  const params = new URLSearchParams({ keywords, limit: limit.toString() });
+  if (options.sortOn) params.set("sort_on", options.sortOn);
+  if (options.sortOrder) params.set("sort_order", options.sortOrder);
+  if (options.includes) params.set("includes", options.includes);
 
   const response = await etsyFetch(`/application/listings/active?${params}`);
 

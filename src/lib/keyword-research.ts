@@ -13,6 +13,8 @@ export interface CompetitorAnalysis {
   tags: string[];
   taxonomy_id: number;
   views: number;
+  num_favorers?: number;
+  image_count?: number;
   url: string;
   price: number;
 }
@@ -116,9 +118,10 @@ export function compileCompetitorInsights(
 
 export async function analyzeCompetitors(
   keyword: string,
-  limit = 30
+  limit = 30,
+  options: { sortOn?: string; sortOrder?: string; includes?: string } = {}
 ): Promise<CompetitorAnalysis[]> {
-  const { results } = await searchListings(keyword, limit);
+  const { results } = await searchListings(keyword, limit, options);
 
   return results.map((listing) => ({
     listing_id: listing.listing_id,
@@ -126,6 +129,8 @@ export async function analyzeCompetitors(
     tags: listing.tags || [],
     taxonomy_id: listing.taxonomy_id,
     views: listing.views,
+    num_favorers: listing.num_favorers ?? 0,
+    image_count: listing.images?.length ?? 0,
     url: listing.url,
     price: listing.price.amount / listing.price.divisor,
   }));
