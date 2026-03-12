@@ -308,12 +308,29 @@
 ## Archive — Phase 1 (completed 2026-02-25)
 
 ### Phase 2 — Logs & Change Tracking (Next)
-- [ ] GET/POST /api/logs — reads/appends to data/change-log.json; entry: timestamp, listing_id, listing_title, field, image_index, old_value, new_value
-- [ ] On Push Live success — POST to /api/logs with change details
-- [ ] LogsPanel — fetch GET /api/logs, display entries grouped by listing with old/new side by side
-- [ ] Each log entry collapsible — shows old vs new value
-- [ ] Revert button per entry — re-push old value via Etsy API
-- [ ] Filter logs by listing, field type, date range
+
+#### Session Plan 2026-03-12
+- [x] src/app/api/logs/route.ts (NEW): GET returns all entries sorted newest-first; POST appends entry to data/change-log.json. Entry shape: { id, timestamp, listing_id, listing_title, field, image_index, image_id, old_value, new_value } — 2026-03-12
+- [x] page.tsx — pushAltText(): add oldAltText + imageIndex params; on success POST to /api/logs — 2026-03-12
+- [x] page.tsx — LogsPanel: fetch GET /api/logs on mount; show "No changes yet" if empty; group entries by listing; each listing collapsible; each entry shows timestamp + "Image N Alt Text" + old→new side by side; Revert button (calls PATCH + writes reverse log entry); filter dropdown by listing — 2026-03-12
+- [x] Revert flow: PATCH /api/etsy/listings/[id]/images/[imageId] with old_value → on success POST reverse log entry → mark entry "Reverted" — 2026-03-12
+
+#### Review — Phase 2 Logs 2026-03-12
+
+##### What was built
+- **`/api/logs/route.ts`** (NEW) — GET reads `data/change-log.json`, returns entries reversed (newest first). POST appends a new `LogEntry` with auto-generated `id` (`timestamp-listing_id-image_index`) and ISO `timestamp`.
+- **`pushAltText()`** — signature extended with `oldAltText` and `imageIndex`. On PATCH success, fires fire-and-forget POST to `/api/logs` with full entry details (listing_id, listing_title, field, image_index, image_id, old_value, new_value).
+- **`LogsPanel`** — full implementation replacing the Phase 2 placeholder:
+  - Fetches `/api/logs` on mount
+  - "No changes logged yet" empty state
+  - Filter dropdown by listing (populated from unique listing_ids in log)
+  - Grouped by listing, each group collapsible (▼/▶ toggle)
+  - Each entry: timestamp + "Image N Alt Text" badge + Before/After side by side + Revert button
+  - **Revert**: PATCH old_value back to Etsy → on success POST reverse log entry → reload log → show "Reverted"
+  - Revert error shown inline in red; button changes to "Retry"
+
+##### Verification
+- Build passes: 17 routes, 0 TypeScript errors ✅
 
 ### 1. Etsy API Connection & Auth
 - [x] OAuth 2.0 + PKCE flow
