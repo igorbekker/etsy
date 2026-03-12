@@ -97,7 +97,8 @@
 - [x] Fixed contrast: explicit text/bg colors throughout, no black-on-black — 2026-03-12
 - [x] Detail panel inline in page.tsx (no page navigation on listing click) — 2026-03-12
 - [x] Verified build passes: 9 routes, 0 errors — 2026-03-12
-- [ ] Fix any issues found during real testing
+- [x] Fix crash: deleted stale /listings/[id]/page.tsx, rebuilt, restarted — 2026-03-12
+- [ ] End-to-end test with real Etsy data in browser
 
 ### Review — UI Redesign 2026-03-12
 - Split-screen layout: left 320px listing list, right panel detail — ✅
@@ -138,3 +139,39 @@
 - middleware.ts is now a pass-through ✅
 - Build passes: 12 routes, 0 errors ✅
 - Pending: register Etsy OAuth callback URL in Etsy developer dashboard
+
+---
+
+## Session 2026-03-12 — Tab Navigation Redesign + Glossary
+
+### Plan
+- [x] Add top-level tab bar: Listings | Keywords | Logs | Glossary — 2026-03-12
+- [x] Widen left listing panel from w-80 (320px) to w-[480px] (480px) — 2026-03-12
+- [x] Inline KeywordsPanel component into page.tsx (move from /keywords/page.tsx) — 2026-03-12
+- [x] Add Logs tab placeholder — 2026-03-12
+- [x] Add Glossary tab with all scoring rules from scoring.ts — 2026-03-12
+- [x] Delete src/app/keywords/page.tsx — 2026-03-12
+- [x] Verify build passes: 8 routes, 0 errors — 2026-03-12
+
+### Review — Tab Navigation + Glossary 2026-03-12
+- Top-level tab bar: Listings | Keywords | Logs | Glossary — in header, orange underline on active ✅
+- Left listing panel widened from w-80 (320px) to w-[480px] (480px) ✅
+- KeywordsPanel inlined into page.tsx — same API calls, no separate page route ✅
+- /keywords/page.tsx deleted — build confirms route is gone ✅
+- Logs tab: placeholder card with Phase 2 note ✅
+- Glossary tab: 7 sections covering all scoring rules with point values and score bands ✅
+- Build passes: 8 routes, 0 errors ✅
+- Known issues logged to backlog: images not displaying, AI recs not loading ✅
+
+---
+
+## Backlog — Bugs & Features
+
+### Bugs
+- [ ] Images tab: listing images not displaying
+- [ ] AI Recs tab: recommendations never load (stuck or silently failing)
+
+### Features
+- [ ] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file
+- [ ] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable
+- [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
