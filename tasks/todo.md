@@ -13,7 +13,7 @@
   - [x] Part 3: Recommendations route — fetch target keywords, run performKeywordResearch, merge results, pass to Claude — 2026-03-12
   - [x] Part 4: Enrich Claude prompt with autocomplete suggestions, tag frequency, title keywords — 2026-03-12
 - [x] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file — 2026-03-12
-- [x] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable — 2026-03-12
+- [x] Listing details page — Details tab: description block height doubled (h-80 = 320px), scrollable, vertically resizable — 2026-03-12
 - [x] Listing details page — Details tab: views label updated to "views (lifetime)" — Etsy API confirmed: lifetime cumulative, updated nightly — 2026-03-12
 - [x] Listing details page — Details tab: units sold — implemented via OAuth transactions_r; shows "X sold" in detail header; shows "Connect Etsy for sales data →" link when not connected — 2026-03-12
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
@@ -142,6 +142,19 @@
 ### Verification
 - Build passes ✅
 - Etsy API confirmed: `views` field is lifetime cumulative, tabulated nightly, active listings only.
+
+---
+
+## Review — Description Block Resize 2026-03-12
+
+### What was built
+- `src/app/page.tsx` line 273: replaced `max-h-40 overflow-y-auto` with `h-80 overflow-y-auto resize-y`
+- `h-80` = 320px default height (double the previous 160px max)
+- `resize-y` allows the user to drag the bottom edge to make it taller or shorter
+
+### Verification
+- Build passes: 15 routes, 0 errors ✅
+- Change is a single-line CSS class swap, no logic involved ✅
 
 ---
 

@@ -270,7 +270,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
           <>
             <section>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</h3>
-              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-800 border border-gray-700 p-3 rounded-lg max-h-40 overflow-y-auto">
+              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-800 border border-gray-700 p-3 rounded-lg h-80 overflow-y-auto resize-y">
                 {listing.description}
               </p>
             </section>
