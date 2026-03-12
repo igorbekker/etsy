@@ -15,9 +15,14 @@
 - [x] Listing details page — Details tab: add target keywords field (1 primary + 2 secondary) per listing, persisted to a local JSON file — 2026-03-12
 - [ ] Listing details page — Details tab: shrink description block height by ~50% and make it scrollable
 - [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
-- [ ] AI Recs: store recommendations to JSON file per listing (keyed by listing_id + date); load from cache on tab open instead of auto-generating; show "Regenerate Recommendations" button to explicitly refresh
+- [x] AI Recs caching + Keyword Saved flash — 2026-03-12
+  - [x] New GET/POST /api/etsy/recommendations/cache/[id] — reads/writes data/listing-recommendations.json — 2026-03-12
+  - [x] fetchRecommendations: check cache first, skip Claude if hit; write to cache after Claude call — 2026-03-12
+  - [x] Show "Generated: [date]" + "Regenerate Recommendations" button in AI Recs tab — 2026-03-12
+  - [x] Keyword inputs: replace static "Saved" message with 2s flash on blur — 2026-03-12
 - [ ] AI Recs: generate recommendations in the background on app load (all listings, not on-demand); user opens AI Recs tab and sees results already ready — no waiting
 - [ ] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images
+- [ ] AI Recs: deep competitor analysis for each listing — scrape 20–30 top competitors (ranked by sales velocity over 90 days); analyze what top competitors share in titles, descriptions, tags; detect probabilistic patterns I'm missing; also analyze listing images (count, size, quality, real vs AI); surface findings as actionable insights in the AI Recs tab
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
 
 ---
@@ -39,6 +44,25 @@
 ### Notes
 - User clarified mid-plan: keywords are **manually entered by the user**, not auto-suggested by the system. Implementation matches this — inputs are blank text fields.
 - Keywords state resets when a different listing is selected (useEffect on listing_id change).
+
+---
+
+## Review — AI Recs Caching + Keyword Save Flash 2026-03-12
+
+### What was built
+- **Cache route** — `src/app/api/etsy/recommendations/cache/[id]/route.ts` (NEW): GET reads `data/listing-recommendations.json` returning cached recommendations + timestamp; POST writes them. Creates `data/` dir if missing.
+- **Cache logic in recommendations route** — `src/app/api/etsy/recommendations/[id]/route.ts`: Now checks cache on GET first; if hit, returns cached data with `cached: true`. After Claude call, writes result to cache.
+- **UI — Generated date + Regenerate button** — `src/app/page.tsx`: AI Recs tab shows "Generated: [date]" when cached recommendations are displayed, plus a "Regenerate Recommendations" button that forces a fresh Claude call (POST to cache route to clear, then re-fetches).
+- **Keyword save flash** — `src/app/page.tsx`: Keyword input `onBlur` now shows a 2-second "Saved ✓" flash instead of the previous static "Saved" message. Flash resets after 2s via `setTimeout`.
+
+### Verification
+- Build passes: 11 routes, 0 errors ✅
+- Cache GET (miss) → `{"recommendations":null}` ✅
+- Cache POST → `{"ok":true}`, persists all 6 recommendation fields + `generatedAt` ✅
+- Cache GET (hit) → full data returned with correct shape ✅
+- `fetchRecommendations()` reads cache first, sets `recsGeneratedAt`, returns early on hit ✅
+- `fetchRecommendations(true)` skips cache check (Regenerate button) ✅
+- Keyword save flash: `setTimeout` at 2000ms clears `keywordsSaved` ✅
 
 ---
 

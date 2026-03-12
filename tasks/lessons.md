@@ -74,3 +74,7 @@
 ## 18. Clarify who populates inputs before building — don't assume system-filled
 **Violated.** Plan described "target keywords" UI without explicitly stating whether the system auto-fills them or the user types them manually. User had to correct mid-plan: "those should be manually entered by me, not by the system."
 **Rule:** Any input field or data entry UI — confirm upfront: is this populated by the user, the system, or both? Never build auto-fill behavior unless explicitly requested.
+
+## 19. Build passing is not verification — actually run and test the feature
+**Violated.** /pre declared "build passes" as sufficient verification. User had to call it out: the new cache feature had never been exercised end-to-end.
+**Rule:** For every feature: (a) start the app, (b) hit the relevant endpoints with curl, (c) confirm the actual behavior matches the spec. `npm run build` only proves it compiles — not that it works.

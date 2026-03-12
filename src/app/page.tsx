@@ -117,13 +117,17 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [recommendations, setRecommendations] = useState<AIRecommendations | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsError, setRecsError] = useState("");
+  const [recsGeneratedAt, setRecsGeneratedAt] = useState<string | null>(null);
   const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
+  const [keywordsSaved, setKeywordsSaved] = useState(false);
 
   useEffect(() => {
     setActiveTab("details");
     setRecommendations(null);
     setRecsError("");
+    setRecsGeneratedAt(null);
     setKeywords({ primary: "", secondary: ["", ""] });
+    setKeywordsSaved(false);
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -135,10 +139,30 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updated),
-    }).catch(() => {});
+    })
+      .then(() => {
+        setKeywordsSaved(true);
+        setTimeout(() => setKeywordsSaved(false), 2000);
+      })
+      .catch(() => {});
   }
 
-  async function fetchRecommendations() {
+  async function fetchRecommendations(forceRegenerate = false) {
+    // Check persistent cache first (skip if forcing regeneration)
+    if (!forceRegenerate) {
+      try {
+        const cacheRes = await fetch(`/api/etsy/recommendations/cache/${listing.listing_id}`);
+        const cacheData = await cacheRes.json();
+        if (cacheData.recommendations) {
+          setRecommendations(cacheData.recommendations);
+          setRecsGeneratedAt(cacheData.generatedAt);
+          return;
+        }
+      } catch {
+        // Cache miss or error — fall through to Claude
+      }
+    }
+
     setRecsLoading(true);
     setRecsError("");
     try {
@@ -149,6 +173,13 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       }
       const data = await res.json();
       setRecommendations(data.recommendations);
+      // Write to persistent cache
+      await fetch(`/api/etsy/recommendations/cache/${listing.listing_id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recommendations: data.recommendations }),
+      });
+      setRecsGeneratedAt(new Date().toISOString());
     } catch (err) {
       setRecsError(err instanceof Error ? err.message : "Failed to generate recommendations");
     } finally {
@@ -296,9 +327,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                   </div>
                 ))}
               </div>
-              {(keywords.primary || keywords.secondary.some(Boolean)) && (
-                <p className="text-xs text-green-500 mt-2">Saved — AI recommendations will use these keywords.</p>
-              )}
+              {keywordsSaved && <p className="text-xs text-green-500 mt-2">Saved</p>}
             </section>
           </>
         )}
@@ -392,7 +421,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
             {recsError && (
               <div className="p-4 bg-red-900/20 border border-red-800/50 rounded-lg">
                 <p className="text-red-400 text-sm">{recsError}</p>
-                <button onClick={fetchRecommendations} className="mt-2 text-xs text-orange-400 hover:text-orange-300">Retry</button>
+                <button onClick={() => fetchRecommendations()} className="mt-2 text-xs text-orange-400 hover:text-orange-300">Retry</button>
               </div>
             )}
             {recommendations && (
@@ -400,6 +429,9 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 <div className="p-4 bg-orange-900/20 border border-orange-800/30 rounded-xl">
                   <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1">Overall Strategy</p>
                   <p className="text-sm text-gray-300">{recommendations.overallStrategy}</p>
+                  {recsGeneratedAt && (
+                    <p className="text-xs text-gray-600 mt-2">Generated: {new Date(recsGeneratedAt).toLocaleString()}</p>
+                  )}
                 </div>
 
                 {([
@@ -478,11 +510,11 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
 
                 <div className="flex justify-center pt-2">
                   <button
-                    onClick={fetchRecommendations}
+                    onClick={() => fetchRecommendations(true)}
                     disabled={recsLoading}
                     className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm text-gray-300 rounded-lg transition-colors"
                   >
-                    Regenerate
+                    Regenerate Recommendations
                   </button>
                 </div>
               </>
