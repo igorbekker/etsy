@@ -26,7 +26,7 @@
 - [x] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images — 2026-03-12
 - [x] AI Recs: deep competitor analysis — 30 competitors, CompetitorInsights section above Overall Strategy (missing tags, title phrases, price range); real vs AI image detection deferred — 2026-03-12
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
-- [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
+- [x] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization — covered via etsy-intelligence-engine.md gap analysis 2026-03-12
 
 ---
 
@@ -368,6 +368,43 @@ Two compounding bugs:
 
 - [ ] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state
 - [ ] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value
+
+---
+
+## Session 2026-03-12 — CLAUDE.md audit + gap analysis
+
+### Plan
+- [x] Read etsy-intelligence-engine.md line by line — full gap analysis — 2026-03-12
+- [x] CLAUDE.md: correct false claim "Etsy API v3 cannot update title/description/tags" — 2026-03-12
+- [x] CLAUDE.md: fix broken escaped-backslash formatting in Workflow section — 2026-03-12
+- [x] CLAUDE.md: update Phase 2 with prioritized Intelligence Engine roadmap — 2026-03-12
+- [x] CLAUDE.md: update file structure to match actual files on disk — 2026-03-12
+- [x] CLAUDE.md: fix Setup section (remove deleted scripts, add OAuth step, add Cloudflare URL) — 2026-03-12
+- [x] CLAUDE.md: fix Verification section (remove login reference, reflect current app) — 2026-03-12
+
+### Review — CLAUDE.md audit 2026-03-12
+
+#### What was done
+Full gap analysis of etsy-intelligence-engine.md against current app. Six gap categories identified:
+1. Title/tags/description writable via PATCH /listings/{id} — CLAUDE.md had false claim they were read-only
+2. KPI Framework (9 listing KPIs) — none computed or displayed
+3. Competitor intelligence gaps: favorites correlation, price scatter, new entrant monitor, photo benchmarking, shop health
+4. Recommendation engine gaps: attribute fill rate, shipping flag (Priority 1), price analysis, photo benchmarking
+5. Data architecture gaps: shop health endpoint, reviews endpoint, rate limit header tracking
+6. Weekly cadence — not implemented
+
+CLAUDE.md updated with:
+- Confirmed writable/not-writable Etsy API v3 field table
+- Phase 2 roadmap prioritized per etsy-intelligence-engine.md (shipping flag first)
+- Phase 3 for truly future features
+- Correct file structure (25 files, no deleted references)
+- Fixed workflow section formatting
+- Updated setup, verification sections
+
+#### Verification
+- CLAUDE.md reads cleanly with no broken markdown ✅
+- File structure matches `find src -type f` output ✅
+- No code changes — doc only ✅
 
 ---
 

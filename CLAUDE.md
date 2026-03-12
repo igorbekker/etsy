@@ -40,113 +40,43 @@ NEVER audit only the main file — audit EVERY file changed this session
 
 ---
 
-\## Workflow Orchestration
-
-
-
-\### 1. Plan Node Default
-
-\- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-
-\- If something goes sideways, STOP and re-plan immediately – don't keep pushing
-
-\- Use plan mode for verification steps, not just building
-
-\- Write detailed specs upfront to reduce ambiguity
-
-
-
-\### 2. Subagent Strategy
-
-\- Use subagents liberally to keep main context window clean
-
-\- Offload research, exploration, and parallel analysis to subagents
-
-\- For complex problems, throw more compute at it via subagents
-
-\- One task per subagent for focused execution
-
-
-
-\### 3. Self-Improvement Loop
-
-\- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-
-\- Write rules for yourself that prevent the same mistake
-
-\- Ruthlessly iterate on these lessons until mistake rate drops
-
-\- Review lessons at session start for relevant project
-
-
-
-\### 4. Verification Before Done
-
-\- Never mark a task complete without proving it works
-
-\- Diff behavior between main and your changes when relevant
-
-\- Ask yourself: "Would a staff engineer approve this?"
-
-\- Run tests, check logs, demonstrate correctness
-
-
-
-\### 5. Demand Elegance (Balanced)
-
-\- For non-trivial changes: pause and ask "is there a more elegant way?"
-
-\- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-
-\- Skip this for simple, obvious fixes – don't over-engineer
-
-\- Challenge your own work before presenting it
-
-
-
-\### 6. Autonomous Bug Fixing
-
-\- When given a bug report: just fix it. Don't ask for hand-holding
-
-\- Point at logs, errors, failing tests – then resolve them
-
-\- Zero context switching required from the user
-
-\- Go fix failing CI tests without being told how
-
-
-
-\## Task Management
-
-
-
-1\. \*\*Plan First\*\*: Write plan to `tasks/todo.md` with checkable items
-
-2\. \*\*Verify Plan\*\*: Check in before starting implementation
-
-3\. \*\*Track Progress\*\*: Mark items complete as you go
-
-4\. \*\*Explain Changes\*\*: High-level summary at each step
-
-5\. \*\*Document Results\*\*: Add review section to `tasks/todo.md`
-
-6\. \*\*Capture Lessons\*\*: Update `tasks/lessons.md` after corrections
-
-
-
-\## Core Principles
-
-
-
-\- \*\*Simplicity First\*\*: Make every change as simple as possible. Impact minimal code.
-
-\- \*\*No Laziness\*\*: Find root causes. No temporary fixes. Senior developer standards.
-
-\- \*\*Minimal Impact\*\*: Changes should only touch what's necessary. Avoid introducing bugs.
-
-
-
----------------------
+## Workflow Orchestration
+
+### 1. Plan Mode Default
+- Enter plan mode for ANY task with 3+ steps or architectural decisions
+- If something goes sideways: STOP and re-plan. Do not keep pushing.
+- Write detailed specs upfront to reduce ambiguity
+
+### 2. Subagent Strategy
+- Use subagents liberally to keep main context window clean
+- Offload research, exploration, and parallel analysis to subagents
+- One task per subagent for focused execution
+
+### 3. Self-Improvement Loop
+- After ANY correction from the user: update `tasks/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Review lessons.md at every session start
+
+### 4. Verification Before Done
+- Never mark a task complete without proving it works
+- Run the actual endpoint/function and confirm output before committing
+- Ask yourself: "Would a staff engineer approve this?"
+
+### 5. Demand Elegance (Balanced)
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- Skip this for simple, obvious fixes — don't over-engineer
+
+### 6. Autonomous Bug Fixing
+- When given a bug report: just fix it. No hand-holding required.
+- Trace the full path before fixing: input → processing → output
+- Fix all broken links in one pass, not one at a time
+
+## Core Principles
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Only touch what's necessary. Avoid introducing bugs.
+
+---
 
 
 # Etsy Listing Optimizer — Project Plan
@@ -155,8 +85,20 @@ NEVER audit only the main file — audit EVERY file changed this session
 Build a web tool for the Etsy shop **MyHomeByMax** that connects to the Etsy API, pulls full listing data, performs keyword research, and generates actionable optimization recommendations to improve listing rankings.
 
 **Shop:** https://www.etsy.com/shop/MyHomeByMax
-**Local folder:** `C:\Users\IgorBekker\Dropbox\Business and Projects\Claude\etsy`
-**API limitations:** Etsy API v3 cannot update title/description/tags — recommendations for those will be manual. Images and alt-text CAN be updated via API.
+**Local folder:** `/home/personal/projects/etsy`
+
+**Etsy API v3 — confirmed writable fields (all require OAuth `listings_w` scope):**
+- `PATCH /listings/{listing_id}` → title, tags (array of 13), description, price
+- `POST /application/shops/{shop_id}/listings/{listing_id}/images` → image alt text (pass `listing_image_id` + `alt_text`; omit `overwrite` flag)
+- `PUT /shops/{shop_id}/listings/{listing_id}/properties/{property_id}` → attributes
+- `PUT /shops/{shop_id}/shipping-profiles/{id}` → shipping price
+
+**Etsy API v3 — NOT writable / not available:**
+- Keyword search volume — no endpoint exists
+- Etsy autocomplete — not available via API
+- Competitor transaction count / revenue — private
+- Impression count / CTR — Etsy internal only
+- Price — writable but requires explicit human approval before any PATCH
 
 ---
 
@@ -212,11 +154,23 @@ For each listing, generate actionable recommendations:
 
 ---
 
-## Phase 2 — Future (Not Now)
+## Phase 2 — Intelligence Engine (Next)
+Priority order per etsy-intelligence-engine.md:
+1. **Shipping flag** — GET /shops/{id}/shipping-profiles; flag US domestic >= $6; offer option A (reduce shipping) or B (absorb into price); write via PUT shipping-profiles
+2. **Tag Push Live** — PATCH /listings/{id} with full 13-tag array; already have copy button, add Push Live
+3. **Title Push Live** — PATCH /listings/{id} with new title; already have copy button, add Push Live
+4. **Description Push Live** — PATCH /listings/{id} with new description; already have copy button, add Push Live
+5. **KPI panel** — compute per listing: revenue 30d, conversion proxy, favorites/views ratio, sales velocity, listing age, days until expiry, tag completeness, attribute fill rate
+6. **Attribute fill rate** — GET /seller-taxonomy/nodes/{taxonomy_id}/properties; diff vs listing properties; auto-write missing attributes
+7. **Photo benchmarking** — competitor avg photo count vs yours; flag if < 5 or below category avg
+8. **Price analysis** — competitor price distribution (25th/75th percentile); underpriced/overpriced flags; margin formula; human approval required before any write
+9. **Weekly cadence** — structured Mon–Sun automation for KPI pulls, tag gap analysis, attribute writes, title scoring
+
+## Phase 3 — Future
 - A/B testing framework
 - Historical tracking & trend charts
-- Bulk recommendation export
-- Auto-update images/alt-text via API
+- New entrant monitor (sort_on=created weekly pull)
+- Favorites correlation analysis
 - Scheduled re-analysis
 
 ---
@@ -232,10 +186,10 @@ For each listing, generate actionable recommendations:
 
 ## Setup
 1. `npm install`
-2. `node scripts/generate-jwt-secret.js` → copy output to `.env.local`
-3. `node scripts/hash-password.js <your-password>` → copy output to `.env.local`
-4. Fill in Etsy API keys in `.env.local` (ETSY_API_KEY, ETSY_SHARED_SECRET, ETSY_SHOP_ID)
-5. `npm run dev` → open http://localhost:3000
+2. Fill in `.env.local` (ETSY_API_KEY, ETSY_SHARED_SECRET, ETSY_SHOP_ID, ETSY_REDIRECT_URI)
+3. `npm run dev` → open http://localhost:3000
+4. Visit `/api/etsy/connect` once to authorize OAuth (scope: `transactions_r listings_w`)
+5. App served publicly via Cloudflare Tunnel at https://etsy.bornganic.com (Cloudflare Access: email OTP, bekker.igor@gmail.com only)
 
 ---
 
@@ -248,38 +202,51 @@ etsy/
 ├── CLAUDE.md
 ├── package.json
 ├── next.config.ts
-├── .env.local                # API keys, auth secrets (gitignored)
-├── scripts/
-│   ├── generate-jwt-secret.js
-│   └── hash-password.js
+├── .env.local                        # API keys (gitignored)
+├── data/                             # JSON storage (gitignored)
+│   ├── etsy-tokens.json              # OAuth tokens
+│   ├── listing-keywords.json         # Per-listing target keywords (manual input)
+│   ├── listing-recommendations.json  # Cached AI recommendations + competitor insights
+│   └── change-log.json               # Push Live history (for Logs tab + revert)
 ├── src/
-│   ├── middleware.ts          # Route protection (JWT check)
+│   ├── middleware.ts                  # Pass-through (Cloudflare Access handles auth)
 │   ├── app/
-│   │   ├── page.tsx           # Dashboard (SEO scores, priority sort)
-│   │   ├── login/page.tsx     # Login page
-│   │   ├── keywords/page.tsx  # Keyword research page
-│   │   ├── listings/[id]/page.tsx  # Listing detail (Details, Images, SEO, AI Recommendations)
+│   │   ├── page.tsx                  # Full app: Listings | Keywords | Logs | Glossary tabs
+│   │   ├── layout.tsx
 │   │   └── api/
-│   │       ├── auth/          # Login/logout routes
-│   │       ├── etsy/          # Connect, callback, listings, status, score, scores, recommendations
-│   │       └── keywords/      # Research + AI suggest endpoints
-│   ├── lib/
-│   │   ├── auth.ts            # JWT auth logic (verify, create, hash)
-│   │   ├── etsy-client.ts     # Etsy API wrapper (OAuth, listings, search)
-│   │   ├── keyword-research.ts  # Autocomplete scraping + competitor analysis
-│   │   ├── ai-suggestions.ts  # Claude API integration (listing + keyword recommendations)
-│   │   ├── scoring.ts         # SEO scoring engine (title, tags, desc, images, metadata)
-│   │   └── mock-data.ts       # Demo mode mock data (listings, recommendations, keywords)
-├── data/                      # JSON storage (etsy-tokens.json, gitignored)
+│   │       ├── etsy/
+│   │       │   ├── connect/route.ts          # OAuth redirect to Etsy
+│   │       │   ├── callback/route.ts         # OAuth code exchange, token save
+│   │       │   ├── status/route.ts           # { connected: boolean }
+│   │       │   ├── listings/route.ts         # GET all active listings
+│   │       │   ├── listings/[id]/route.ts    # GET single listing (with images)
+│   │       │   ├── listings/[id]/images/[imageId]/route.ts  # PATCH alt text (Push Live)
+│   │       │   ├── transactions/[id]/route.ts               # GET units sold
+│   │       │   ├── recommendations/[id]/route.ts            # Generate AI recs
+│   │       │   ├── recommendations/cache/[id]/route.ts      # Read/write recs cache
+│   │       │   ├── score/[id]/route.ts       # SEO score for one listing
+│   │       │   └── scores/route.ts           # SEO scores for all listings
+│   │       ├── keywords/
+│   │       │   ├── research/route.ts         # Competitor pull + tag frequency
+│   │       │   └── ai-suggest/route.ts       # Claude keyword suggestions
+│   │       ├── listing-keywords/[id]/route.ts  # Read/write per-listing target keywords
+│   │       └── logs/route.ts                 # Read/append change log
+│   └── lib/
+│       ├── etsy-client.ts            # Etsy API wrapper (OAuth, listings, write ops)
+│       ├── keyword-research.ts       # Competitor analysis + tag/title frequency mining
+│       ├── ai-suggestions.ts         # Claude API: listing recs + keyword suggestions
+│       ├── scoring.ts                # SEO scoring engine (title, tags, desc, images, metadata)
+│       └── mock-data.ts              # Demo mode fallback data
 └── tasks/
-    ├── todo.md                # Phase 1 checklist + review
-    └── lessons.md             # Lessons from corrections
+    ├── todo.md
+    └── lessons.md
 ```
 
 ---
 
 ## Verification
-1. Login → see dashboard with all shop listings loaded from Etsy API
-2. Click a listing → see full data + SEO score + recommendations
-3. Run keyword research for a seed term → see autocomplete suggestions + competitor data
-4. Recommendations are specific and actionable (not generic)
+1. Open https://etsy.bornganic.com → Cloudflare Access email OTP → dashboard loads all listings
+2. Click a listing → Details / Images / SEO Score / AI Recs tabs all render
+3. AI Recs tab: shows cached recommendations or "Sync AI" button to generate
+4. Push Live (alt text) → Logs tab shows the change with revert option
+5. Keywords tab → competitor tag frequency + AI keyword suggestions

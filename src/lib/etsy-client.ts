@@ -309,7 +309,10 @@ export async function searchListings(
   return response.json();
 }
 
-// --- Transactions (requires OAuth transactions_r scope) ---
+// --- Write Operations (requires OAuth listings_w scope) ---
+// ⚠️  WARNING: These functions write to LIVE production Etsy listings.
+// ⚠️  They must ONLY be called from app API routes triggered by the user in the UI.
+// ⚠️  NEVER call these directly from scripts, curl, or test code.
 
 export async function updateListingImageAltText(
   listingId: number,
