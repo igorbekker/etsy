@@ -150,6 +150,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [unitsSold, setUnitsSold] = useState<number | "not_connected" | null>(null);
   const [competitorInsights, setCompetitorInsights] = useState<CompetitorInsights | null>(null);
   const [altTextStatus, setAltTextStatus] = useState<Record<number, "pushing" | "done" | "error">>({});
+  const [altTextErrors, setAltTextErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
     setActiveTab("details");
@@ -161,6 +162,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setUnitsSold(null);
     setCompetitorInsights(null);
     setAltTextStatus({});
+    setAltTextErrors({});
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -231,16 +233,24 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
 
   async function pushAltText(imageId: number, altText: string) {
     setAltTextStatus((prev) => ({ ...prev, [imageId]: "pushing" }));
+    setAltTextErrors((prev) => { const next = { ...prev }; delete next[imageId]; return next; });
     try {
       const res = await fetch(`/api/etsy/listings/${listing.listing_id}/images/${imageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alt_text: altText }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.error === "not_connected"
+          ? "Not connected to Etsy — re-authorize at /api/etsy/connect"
+          : (data.error || `Server error (${res.status})`);
+        throw new Error(msg);
+      }
       setAltTextStatus((prev) => ({ ...prev, [imageId]: "done" }));
-    } catch {
+    } catch (err) {
       setAltTextStatus((prev) => ({ ...prev, [imageId]: "error" }));
+      setAltTextErrors((prev) => ({ ...prev, [imageId]: err instanceof Error ? err.message : "Unknown error" }));
     }
   }
 
@@ -486,6 +496,16 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 <button onClick={() => fetchRecommendations()} className="mt-2 text-xs text-orange-400 hover:text-orange-300">Retry</button>
               </div>
             )}
+            {recommendations && !recsLoading && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => fetchRecommendations(true)}
+                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-xs text-gray-300 rounded-lg transition-colors"
+                >
+                  Regenerate
+                </button>
+              </div>
+            )}
             {recommendations && (
               <>
                 {competitorInsights && (
@@ -622,10 +642,13 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                                       "bg-orange-700 hover:bg-orange-600 text-white"
                                     }`}
                                   >
-                                    {status === "done" ? "Pushed!" : status === "error" ? "Error" : status === "pushing" ? "Pushing..." : "Push Live"}
+                                    {status === "done" ? "Pushed!" : status === "error" ? "Retry" : status === "pushing" ? "Pushing..." : "Push Live"}
                                   </button>
                                 )}
                               </div>
+                              {imageId !== undefined && status === "error" && altTextErrors[imageId] && (
+                                <p className="text-xs text-red-400 mb-1">{altTextErrors[imageId]}</p>
+                              )}
                               <p className="text-sm text-white">{alt.recommended}</p>
                             </div>
                           </div>
@@ -635,15 +658,6 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                   </section>
                 )}
 
-                <div className="flex justify-center pt-2">
-                  <button
-                    onClick={() => fetchRecommendations(true)}
-                    disabled={recsLoading}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-sm text-gray-300 rounded-lg transition-colors"
-                  >
-                    Regenerate Recommendations
-                  </button>
-                </div>
               </>
             )}
           </>

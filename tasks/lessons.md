@@ -82,3 +82,7 @@
 ## 20. Never commit without /pre — even for small bug fixes
 **Violated twice in one session.** Committed the OAuth callback fix directly without stopping for /pre. Also interpreted "/pre then commit/deploy" as blanket authorization to skip the confirmation step in /pre.
 **Rule:** EVERY commit requires /pre, no exceptions. "Then commit/deploy" in /pre args means the user pre-approves after /pre completes — it does not skip /pre. Step 8 of /pre always requires explicitly saying "Ready to commit. Please approve." and waiting.
+
+## 21. Don't propose building Phase 2 features when fixing bugs — just fix and move on
+**Violated.** When user reported "logs records nothing," proposed a full logs implementation plan instead of noting it's Phase 2 and moving on. User had to redirect: "move the logs comment to Phase 2."
+**Rule:** When a bug report touches a known Phase 2 placeholder, fix the actual bug reported and note the Phase 2 work as deferred. Do not propose building Phase 2 scope unless the user explicitly asks for it.

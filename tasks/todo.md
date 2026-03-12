@@ -16,7 +16,6 @@
 - [x] Listing details page — Details tab: description block height doubled (h-80 = 320px), scrollable, vertically resizable — 2026-03-12
 - [x] Listing details page — Details tab: views label updated to "views (lifetime)" — Etsy API confirmed: lifetime cumulative, updated nightly — 2026-03-12
 - [x] Listing details page — Details tab: units sold — implemented via OAuth transactions_r; shows "X sold" in detail header; shows "Connect Etsy for sales data →" link when not connected — 2026-03-12
-- [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
 - [x] AI Recs caching + Keyword Saved flash — 2026-03-12
   - [x] New GET/POST /api/etsy/recommendations/cache/[id] — reads/writes data/listing-recommendations.json — 2026-03-12
   - [x] fetchRecommendations: check cache first, skip Claude if hit; write to cache after Claude call — 2026-03-12
@@ -26,6 +25,7 @@
 - [x] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images — 2026-03-12
 - [x] AI Recs: deep competitor analysis — 30 competitors, CompetitorInsights section above Overall Strategy (missing tags, title phrases, price range); real vs AI image detection deferred — 2026-03-12
 - [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
+- [ ] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization
 
 ---
 
@@ -200,6 +200,23 @@
 
 ---
 
+## Session 2026-03-12 — AI Recs UI fixes
+
+### Plan
+- [x] Move Regenerate button to top of AI Recs tab (right-aligned, above Competitor Insights) — 2026-03-12
+- [x] Push Live error: capture actual API error message, display below button in red; button label → "Retry" on error — 2026-03-12
+
+### Review — AI Recs UI fixes 2026-03-12
+
+#### What was built
+- **Regenerate button** — moved from bottom of recommendations list to top of the recommendations section (renders right after loading/error states, right-aligned). Removed old bottom button entirely.
+- **Push Live error message** — `altTextErrors: Record<number, string>` state added. `pushAltText()` now reads the API response body on failure and surfaces the actual error string (e.g. "Not connected to Etsy — re-authorize at /api/etsy/connect" for 401, or the raw Etsy error message for 500). Error renders below the button in red. Button label changes to "Retry" on error (re-clickable).
+
+#### Verification
+- Build passes: 16 routes, 0 TypeScript errors ✅
+
+---
+
 ## Review — Description Block Resize 2026-03-12
 
 ### What was built
@@ -290,14 +307,12 @@
 
 ## Archive — Phase 1 (completed 2026-02-25)
 
-### Phase 2 — Logs & Change Tracking (Future)
-- [ ] Add top-level tab navigation: "Active Listings" | "Logs"
-- [ ] Build change log data structure (JSON file per listing, or single log file)
-  - Each entry: timestamp, listing_id, listing_title, field changed, old value, new value, source (AI rec / manual)
-- [ ] When a recommendation is applied (title, description, tags, alt text), write a log entry
-- [ ] Logs page: list all changes across all listings, grouped by listing
-- [ ] Each log entry is collapsible — shows old vs new value side by side
-- [ ] Revert button per entry — restores old value (via Etsy API write or manual instruction)
+### Phase 2 — Logs & Change Tracking (Next)
+- [ ] GET/POST /api/logs — reads/appends to data/change-log.json; entry: timestamp, listing_id, listing_title, field, image_index, old_value, new_value
+- [ ] On Push Live success — POST to /api/logs with change details
+- [ ] LogsPanel — fetch GET /api/logs, display entries grouped by listing with old/new side by side
+- [ ] Each log entry collapsible — shows old vs new value
+- [ ] Revert button per entry — re-push old value via Etsy API
 - [ ] Filter logs by listing, field type, date range
 
 ### 1. Etsy API Connection & Auth
