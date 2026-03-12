@@ -265,9 +265,29 @@ Visit `/api/etsy/connect` to re-authorize with `listings_w` scope. Push Live wil
 
 ---
 
+## Session 2026-03-12 — Fix Push Live URL (shop-scoped write endpoint)
+
+### Plan
+- [x] etsy-client.ts: updateListingImageAltText — change URL from /application/listings/{id}/images/{imageId} to /application/shops/{shopId}/listings/{id}/images/{imageId} — 2026-03-12
+
+### Review — Push Live URL Fix 2026-03-12
+
+#### Root cause
+Etsy v3 write operations (PATCH/PUT/DELETE) require a shop-scoped URL (`/application/shops/{shop_id}/listings/{id}/...`). Read operations work on the direct listing URL (`/application/listings/{id}`). Using the non-shop URL for writes returns 404 "Resource not found" — same misleading error as a missing OAuth scope.
+
+#### What was fixed
+- `src/lib/etsy-client.ts` `updateListingImageAltText()`: URL changed from `/application/listings/${listingId}/images/${imageId}` → `/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images/${imageId}`
+
+#### Verification
+- Direct curl test confirmed: PATCH to shop-scoped URL → HTTP 200 ✅
+- PATCH to non-shop URL → 404 (root cause confirmed) ✅
+- Build passes: 17 routes, 0 TypeScript errors ✅
+
+---
+
 ## Open — In Progress
 
-- [ ] End-to-end test with real Etsy data in browser
+- [ ] End-to-end test Push Live with corrected URL in browser
 
 ---
 

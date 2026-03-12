@@ -316,7 +316,7 @@ export async function updateListingImageAltText(
   imageId: number,
   altText: string
 ): Promise<void> {
-  const res = await oauthFetch(`/application/listings/${listingId}/images/${imageId}`, {
+  const res = await oauthFetch(`/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images/${imageId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ alt_text: altText }),

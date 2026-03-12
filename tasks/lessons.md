@@ -90,3 +90,7 @@
 ## 22. Etsy returns 404 "Resource not found" for missing OAuth scope — not 403
 **Pattern.** PATCH /listings/{id}/images/{imageId} returned 404 when the token lacked listings_w scope. GET on the same resource returned 200. Misleading error caused confusion.
 **Rule:** When an Etsy PATCH/PUT/DELETE returns 404 but GET works, suspect missing OAuth scope first. Check whether the operation requires a scope beyond what was authorized. Detect "Resource not found" in the error handler and surface a scope-specific message.
+
+## 23. Etsy v3 write operations require shop-scoped URLs — not direct listing URLs
+**Pattern.** PATCH `/application/listings/{id}/images/{imageId}` returned 404. PATCH `/application/shops/{shop_id}/listings/{id}/images/{imageId}` returned 200. Same token, same scope, same image. Only the URL differed.
+**Rule:** All Etsy v3 write operations (PATCH/PUT/DELETE on listings/images) must use the shop-scoped URL pattern `/application/shops/${ETSY_SHOP_ID}/listings/{id}/...`. Read operations (GET) work on either URL. When a write returns 404 and scope is confirmed correct, check the URL pattern next.
