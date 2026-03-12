@@ -40,6 +40,10 @@
 **Pattern found:** After fixing bugs in a session, lessons.md was not updated until the user explicitly asked "fix it."
 **Rule:** After ANY correction or bug fix, update `tasks/lessons.md` immediately — before committing. This is part of the Definition of Done per CLAUDE.md.
 
+## 21. Test API access before building OAuth — public endpoints may not need it
+**Violation:** Built a full OAuth 2.0 + PKCE flow for Etsy. A simple curl test would have shown the API key alone is sufficient for public shop listing data. Wasted significant effort.
+**Rule:** Before building any auth/OAuth flow for an API, run a curl test with just the API key first. Only add OAuth if the key-only request fails.
+
 ## 19. HARD STOP before committing — never skip /pre
 **Violation (repeated this session):** Made code changes (middleware.ts, Cloudflare Access config) and restarted the app without stopping to say "Ready for /pre — please run /pre before I commit." Violated CLAUDE.md commit protocol twice in the same session.
 **Rule:** After ANY code change that will be committed, STOP COMPLETELY. Say "Ready for /pre — please run /pre before I commit." Do not restart the app, do not continue. Wait for the user to type /pre.

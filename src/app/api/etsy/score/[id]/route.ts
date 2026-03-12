@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getListing, isConnected } from "@/lib/etsy-client";
+import { getListing } from "@/lib/etsy-client";
 import { scoreListing } from "@/lib/scoring";
 import { DEMO_MODE, MOCK_LISTINGS } from "@/lib/mock-data";
 
@@ -22,14 +22,6 @@ export async function GET(
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
     return NextResponse.json({ score: scoreListing(listing) });
-  }
-
-  const connected = await isConnected();
-  if (!connected) {
-    return NextResponse.json(
-      { error: "Not connected to Etsy" },
-      { status: 401 }
-    );
   }
 
   try {

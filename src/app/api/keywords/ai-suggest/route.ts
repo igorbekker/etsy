@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateKeywordSuggestions } from "@/lib/ai-suggestions";
-import { isConnected } from "@/lib/etsy-client";
 import { DEMO_MODE, MOCK_AI_SUGGESTIONS } from "@/lib/mock-data";
 
 export async function POST(request: NextRequest) {
@@ -9,14 +8,6 @@ export async function POST(request: NextRequest) {
 
   if (DEMO_MODE) {
     return NextResponse.json(MOCK_AI_SUGGESTIONS);
-  }
-
-  const connected = await isConnected();
-  if (!connected) {
-    return NextResponse.json(
-      { error: "Not connected to Etsy" },
-      { status: 401 }
-    );
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

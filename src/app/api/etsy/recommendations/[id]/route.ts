@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getListing, searchListings, isConnected } from "@/lib/etsy-client";
+import { getListing, searchListings } from "@/lib/etsy-client";
 import { generateListingRecommendations } from "@/lib/ai-suggestions";
 import { DEMO_MODE, getMockRecommendations } from "@/lib/mock-data";
 
@@ -18,14 +18,6 @@ export async function GET(
 
   if (DEMO_MODE) {
     return NextResponse.json({ recommendations: getMockRecommendations(listingId) });
-  }
-
-  const connected = await isConnected();
-  if (!connected) {
-    return NextResponse.json(
-      { error: "Not connected to Etsy" },
-      { status: 401 }
-    );
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

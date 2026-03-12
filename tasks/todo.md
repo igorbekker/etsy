@@ -87,9 +87,20 @@
 - [x] Switched Cloudflare Access to email OTP (no Google OAuth, no app login) — 2026-03-12
 - [x] Removed app login page, auth API routes, auth.ts, middleware JWT checks — 2026-03-12
 - [x] middleware.ts simplified to pass-through (Cloudflare Access is sole auth gate) — 2026-03-12
-- [ ] Add https://etsy.bornganic.com/api/etsy/callback to Etsy developer app (user action)
-- [ ] Connect Etsy OAuth via dashboard and verify end-to-end with real listings
+- [x] Remove OAuth from etsy-client.ts, use API key directly — 2026-03-12
+- [x] Delete connect/callback/status API routes — 2026-03-12
+- [x] Remove "Connect Etsy" UI from dashboard — 2026-03-12
+- [x] Remove isConnected() checks from all 7 API routes — 2026-03-12
+- [x] Test listings load: 12 listings returned via API key — 2026-03-12
 - [ ] Fix any issues found during real testing
+
+### Review — OAuth Removal 2026-03-12
+- etsy-client.ts rewritten: no OAuth, no token storage, API key only ✅
+- connect/callback/status routes deleted ✅
+- All isConnected() checks removed from 7 route files ✅
+- "Connect Etsy" UI removed from dashboard ✅
+- Verified: curl http://localhost:3000/api/etsy/listings → 12 real listings ✅
+- Build passes: 9 routes, 0 errors ✅
 
 ### Review — 2026-03-12
 - .env.local created with all required variables ✅

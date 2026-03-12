@@ -22,7 +22,6 @@ type SortMode = "priority" | "views" | "title";
 export default function Dashboard() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [scores, setScores] = useState<Record<number, number>>({});
-  const [connected, setConnected] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [scoresLoading, setScoresLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,24 +29,8 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    checkConnection();
+    fetchListings();
   }, []);
-
-  async function checkConnection() {
-    try {
-      const res = await fetch("/api/etsy/status");
-      const data = await res.json();
-      setConnected(data.connected);
-
-      if (data.connected) {
-        await fetchListings();
-      }
-    } catch {
-      setError("Failed to check Etsy connection");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function fetchListings() {
     try {
@@ -58,6 +41,8 @@ export default function Dashboard() {
       fetchScores();
     } catch {
       setError("Failed to fetch listings");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -130,19 +115,6 @@ export default function Dashboard() {
               Demo Mode
             </span>
           )}
-          {connected ? (
-            <span className="text-sm text-green-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 bg-green-400 rounded-full" />
-              Etsy Connected
-            </span>
-          ) : (
-            <a
-              href="/api/etsy/connect"
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm rounded-lg transition-colors"
-            >
-              Connect Etsy
-            </a>
-          )}
           <button
             onClick={handleLogout}
             className="text-sm text-gray-400 hover:text-white transition-colors"
@@ -160,22 +132,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!connected && (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold mb-2">Connect Your Etsy Shop</h2>
-            <p className="text-gray-400 mb-6">
-              Connect your Etsy account to start analyzing your listings.
-            </p>
-            <a
-              href="/api/etsy/connect"
-              className="inline-block px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-lg transition-colors"
-            >
-              Connect to Etsy
-            </a>
-          </div>
-        )}
-
-        {connected && listings.length > 0 && (
+        {listings.length > 0 && (
           <>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -301,7 +258,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {connected && listings.length === 0 && !loading && (
+        {listings.length === 0 && !loading && (
           <div className="text-center py-20 text-gray-400">
             No active listings found in your shop.
           </div>

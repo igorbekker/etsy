@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllShopListings, isConnected } from "@/lib/etsy-client";
+import { getAllShopListings } from "@/lib/etsy-client";
 import { scoreListing } from "@/lib/scoring";
 import { DEMO_MODE, MOCK_LISTINGS } from "@/lib/mock-data";
 
@@ -10,14 +10,6 @@ export async function GET() {
       scores[listing.listing_id] = scoreListing(listing).overall;
     }
     return NextResponse.json({ scores });
-  }
-
-  const connected = await isConnected();
-  if (!connected) {
-    return NextResponse.json(
-      { error: "Not connected to Etsy" },
-      { status: 401 }
-    );
   }
 
   try {
