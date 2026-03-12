@@ -12,6 +12,7 @@ interface Listing {
   price: { amount: number; divisor: number; currency_code: string };
   quantity: number;
   views: number;
+  num_favorers?: number;
   state: string;
   url: string;
   images: { url_170x135: string; url_570xN: string; url_fullxfull: string; alt_text: string; listing_image_id: number; rank: number }[];
@@ -375,6 +376,77 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
 
         {activeTab === "details" && (
           <>
+            {/* Conversion Diagnostics */}
+            {(() => {
+              const views = listing.views ?? 0;
+              const favorers = listing.num_favorers ?? 0;
+              const sold = typeof unitsSold === "number" ? unitsSold : null;
+
+              if (views === 0) {
+                return (
+                  <section className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Performance</h3>
+                    <p className="text-sm text-gray-500">No views yet — listing too new to diagnose.</p>
+                  </section>
+                );
+              }
+
+              const favRatio = (favorers / views) * 100;
+              const convProxy = sold !== null ? (sold / views) * 100 : null;
+
+              const favColor = favRatio >= 2 ? "text-green-400" : favRatio >= 1 ? "text-yellow-400" : "text-red-400";
+              const favBg = favRatio >= 2 ? "bg-green-900/30 border-green-800/50" : favRatio >= 1 ? "bg-yellow-900/30 border-yellow-800/50" : "bg-red-900/30 border-red-800/50";
+              const convColor = convProxy === null ? "text-gray-400" : convProxy >= 1 ? "text-green-400" : convProxy >= 0.5 ? "text-yellow-400" : "text-red-400";
+              const convBg = convProxy === null ? "bg-gray-800 border-gray-700" : convProxy >= 1 ? "bg-green-900/30 border-green-800/50" : convProxy >= 0.5 ? "bg-yellow-900/30 border-yellow-800/50" : "bg-red-900/30 border-red-800/50";
+
+              let diagnosis = "";
+              let diagColor = "text-gray-400";
+              if (views < 100) {
+                diagnosis = "Too few views — this is a keyword problem. Focus on title and tags.";
+                diagColor = "text-yellow-400";
+              } else if (convProxy !== null && convProxy < 1 && favRatio < 2) {
+                diagnosis = "Views are there but buyers aren't engaging. Check price and photos.";
+                diagColor = "text-red-400";
+              } else if (convProxy !== null && convProxy < 1 && favRatio >= 2) {
+                diagnosis = "Buyers are saving but not purchasing. Price may be the barrier.";
+                diagColor = "text-yellow-400";
+              } else if (convProxy !== null && convProxy >= 1 && favRatio >= 2) {
+                diagnosis = "Listing is performing well.";
+                diagColor = "text-green-400";
+              } else if (convProxy === null && favRatio < 2) {
+                diagnosis = "Connect Etsy to see conversion rate. Low save rate — check thumbnail and price.";
+                diagColor = "text-yellow-400";
+              }
+
+              return (
+                <section className="bg-gray-800 border border-gray-700 rounded-xl p-4">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Performance</h3>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className={`border rounded-lg p-3 ${convBg}`}>
+                      <p className="text-xs text-gray-500 mb-1">Conversion Rate</p>
+                      <p className={`text-2xl font-bold ${convColor}`}>
+                        {convProxy === null
+                          ? unitsSold === "not_connected" ? "—" : "…"
+                          : `${convProxy.toFixed(2)}%`}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">purchases / views · flag &lt;1%</p>
+                    </div>
+                    <div className={`border rounded-lg p-3 ${favBg}`}>
+                      <p className="text-xs text-gray-500 mb-1">Save Rate</p>
+                      <p className={`text-2xl font-bold ${favColor}`}>{favRatio.toFixed(2)}%</p>
+                      <p className="text-xs text-gray-600 mt-1">favorites / views · flag &lt;2%</p>
+                    </div>
+                  </div>
+                  {diagnosis && <p className={`text-xs ${diagColor}`}>{diagnosis}</p>}
+                  {unitsSold === "not_connected" && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      <a href="/api/etsy/connect" className="text-orange-400 hover:text-orange-300">Connect Etsy →</a> to see conversion rate
+                    </p>
+                  )}
+                </section>
+              );
+            })()}
+
             <section>
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Description</h3>
               <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-800 border border-gray-700 p-3 rounded-lg h-80 overflow-y-auto resize-y">

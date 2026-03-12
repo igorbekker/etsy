@@ -207,6 +207,7 @@ export interface EtsyListing {
   personalization_char_count_max: number;
   personalization_instructions: string;
   views: number;
+  num_favorers?: number;
   state: string;
   url: string;
   shop_section_id: number;

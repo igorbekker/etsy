@@ -1,5 +1,219 @@
 # Etsy Listing Optimizer — Todo
 
+## Approved — Intelligence Engine (Phase 2)
+
+### FOUNDATION: Keyword-Driven Competitor Pulls
+
+Every competitor pull in the app must be driven by the listing's saved keywords — not the listing title, not a generic fallback. This is the core principle behind all three features below.
+
+**How it works:**
+- Each listing already has `primary` + `secondary[0]` + `secondary[1]` keywords stored in `data/listing-keywords.json`
+- Before running any competitor analysis for a listing, check that at least one keyword is saved
+- If no keywords saved: show a prompt in the UI — "Set target keywords in the Details tab to run competitor analysis" — do NOT fall back to title words for benchmarking (title-word fallback is only acceptable for AI recs generation, not for benchmark data)
+- Pull competitors for EACH non-empty keyword separately: primary first, then secondary[0], then secondary[1]
+- Use `GET /listings/active?keywords={keyword}&limit=100&sort_on=score&sort_order=desc` for each
+- Deduplicate results by `listing_id` across all keyword pulls
+- After dedup, sort remaining competitors by `num_favorers` descending — highest demand signal first
+- Use top 30 unique competitors for all calculations
+
+**Why sort_on=score matters:** this returns listings in the same order as live Etsy search results for that keyword. Page 1 of this response = the listings you are competing against right now.
+
+---
+
+### FEATURE 1: Conversion Diagnostics
+
+**Purpose:** Distinguish between a keyword problem (low views) and a conversion problem (high views, low sales/favorites). These have completely different fixes. Showing them together per listing makes the diagnosis immediate.
+
+**Data sources — all already fetched, just not displayed together:**
+- `listing.views` — lifetime cumulative view count (already in listing object)
+- `listing.num_favorers` — total favorites (already in listing object, not yet displayed anywhere)
+- `transactions_30d` — already fetched via `/api/etsy/transactions/[id]` as `units_sold`
+
+**KPIs to compute (client-side, no new API calls):**
+
+**Conversion Proxy**
+- Formula: `transactions_30d / views × 100` (expressed as %)
+- Bands:
+  - < 0.5% = RED — serious conversion problem
+  - 0.5–1.0% = YELLOW — below threshold, monitor
+  - > 1.0% = GREEN — healthy
+- Diagnosis when RED/YELLOW: "High views, low purchases — examine price, description, and photos"
+- Edge case: if views = 0, show "No views yet — listing too new to diagnose"
+- Edge case: if transactions_30d = 0 but views > 500, show RED with diagnosis
+
+**Favorites/Views Ratio**
+- Formula: `num_favorers / views × 100` (expressed as %)
+- Bands:
+  - < 1% = RED — thumbnail or price problem
+  - 1–2% = YELLOW — below threshold
+  - > 2% = GREEN — healthy save rate
+- Diagnosis when RED/YELLOW: "Low save rate — likely a thumbnail quality or pricing issue"
+- Edge case: if views = 0, skip
+
+**Combined diagnosis logic (shown as a single summary line below the KPIs):**
+- views < 100 (lifetime) → "Too few views — this is a keyword/discoverability problem. Focus on title and tags."
+- views ≥ 100 AND conversion < 1% AND favorites/views < 2% → "Views are there but buyers aren't engaging. Check price and photos."
+- views ≥ 100 AND conversion < 1% AND favorites/views ≥ 2% → "Buyers are saving but not purchasing. Price or checkout friction."
+- views ≥ 100 AND conversion ≥ 1% AND favorites/views ≥ 2% → "Listing is performing well."
+
+**Where it lives in the UI:**
+- New "KPIs" section at the top of the Details tab, above the existing property grid
+- Two stat boxes side by side: Conversion Proxy | Favorites/Views Ratio
+- Each box: large number, color-coded (red/yellow/green), label, threshold note
+- Below the two boxes: single diagnosis line in the matching color
+- `units_sold` (already shown in header) feeds conversion proxy — no new fetch needed
+- `num_favorers` needs to be pulled from the listing object and added to state
+
+**Implementation steps:**
+- [x] page.tsx: add num_favorers to Listing interface + EtsyListing type (optional — not in mock data) — 2026-03-12
+- [x] page.tsx: compute conversionProxy and favoritesRatio in DetailPanel using existing unitsSold + listing.views + listing.num_favorers — 2026-03-12
+- [x] page.tsx: add KPI section at top of Details tab with color-coded stat boxes and diagnosis line — 2026-03-12
+- [x] Handle all edge cases: views = 0, unitsSold = null, unitsSold = "not_connected" — 2026-03-12
+
+### Review — Feature 1: Conversion Diagnostics 2026-03-12
+
+#### What was built
+- **`etsy-client.ts`** — Added `num_favorers?: number` to `EtsyListing` interface. Optional because mock data doesn't include it — real Etsy API returns it on every listing.
+- **`page.tsx`** — Added `num_favorers?: number` to the local `Listing` interface (mirrors etsy-client.ts).
+- **`page.tsx`** — New "Performance" section at the top of the Details tab, computed entirely client-side from data already in state:
+  - **Conversion Rate**: `unitsSold / listing.views × 100`. Color bands: green ≥ 1%, yellow 0.5–1%, red < 0.5%. Flag threshold: < 1%.
+  - **Save Rate**: `num_favorers / listing.views × 100`. Color bands: green ≥ 2%, yellow 1–2%, red < 1%. Flag threshold: < 2%.
+  - **Diagnosis line**: one plain-English sentence based on combined signal — keyword problem (views < 100), conversion problem (high views, low both KPIs), price barrier (good saves, low purchases), performing well.
+  - Edge cases handled: views = 0 → "No views yet"; unitsSold = null → shows "…"; unitsSold = "not_connected" → shows "—" for conversion with a Connect Etsy link; missing num_favorers → defaults to 0 via `?? 0`.
+
+#### Verification
+- `curl GET /api/etsy/listings/4447796840` → `views: 198, num_favorers: 6` — field returned by Etsy API ✅
+- Build passes: 0 TypeScript errors ✅
+- Save rate for that listing: 6/198 × 100 = 3.03% → GREEN ✅
+- No new API calls introduced — all data already fetched on listing open ✅
+
+---
+
+### FEATURE 2: Competitor Benchmarking Panel
+
+**Purpose:** Show exactly where a listing stands vs. the top-ranking competitors for its target keywords — price, demand, tag coverage, photo count. One panel, all gaps visible at once.
+
+**Keyword dependency:** Requires at least one saved keyword (primary or secondary). If none saved, show prompt: "Add target keywords in the Details tab to run competitor analysis."
+
+**Data flow:**
+1. User opens a listing → sees "Run Benchmark" button (or auto-runs if cache is fresh)
+2. App fetches competitor data for each saved keyword: `GET /listings/active?keywords={kw}&limit=100&sort_on=score`
+3. Deduplicates by listing_id across all keyword pulls
+4. Sorts deduped set by num_favorers desc, takes top 30
+5. Computes all 4 benchmark metrics (see below)
+6. Caches result to `data/listing-benchmarks.json` keyed by listing_id with timestamp
+7. Cache TTL: 24 hours — if cache is fresh, skip API calls and show cached data with "Last updated: X"
+8. "Refresh" button forces re-fetch regardless of cache age
+
+**Metric 1 — Price Positioning**
+- From competitors: collect all `price.amount / price.divisor` values → compute min, 25th pct, median, 75th pct, max
+- Your listing price: `listing.price.amount / listing.price.divisor`
+- Display: a simple range bar showing where your price sits in the distribution
+- Position labels: "Bottom 25%" / "Mid-range (25–75%)" / "Top 25%"
+- Flags:
+  - You are in top 25% AND your num_favorers < 50% of competitor avg → YELLOW "May be overpriced for demand level"
+  - You are in bottom 25% AND your num_favorers > competitor avg → GREEN "Potentially underpriced — room to raise price"
+  - No auto-write for price — display only, human decision
+
+**Metric 2 — Demand Gap (Favorites)**
+- From competitors: avg `num_favorers` across top 30
+- Your listing: `listing.num_favorers`
+- Display: your count vs competitor avg, expressed as "You: X favorites | Competitor avg: Y favorites (you're at Z%)"
+- Flag: you < 30% of competitor avg → RED "Significant demand gap — listing needs optimization"
+- Flag: you 30–70% of competitor avg → YELLOW "Below competitor demand level"
+- Flag: you > 70% of competitor avg → GREEN
+
+**Metric 3 — Tag Coverage Score**
+- From competitors: pool ALL tags from top 30 listings, count frequency of each unique tag phrase
+- Top 20 by frequency = "consensus tags" for this keyword
+- Your tags: how many of the top 20 do you use?
+- Display: "You use X/20 consensus tags"
+- List the missing consensus tags (those in top 20 not in your listing) — shown as orange badges
+- This feeds directly into the AI Recs tag recommendation — the missing tags here MUST be in the AI recommended tag set
+- Flag: < 10/20 → RED | 10–15/20 → YELLOW | > 15/20 → GREEN
+
+**Metric 4 — Photo Count**
+- From competitors: avg number of images across top 30 (count `listing.images` array length per competitor)
+- Your listing: count of `listing.images`
+- Display: "You: X photos | Competitor avg: Y photos"
+- Flag: you < 5 → RED (regardless of competitor avg — Etsy guidance minimum)
+- Flag: you < competitor avg → YELLOW
+- Flag: you ≥ competitor avg AND ≥ 5 → GREEN
+- Note: photos affect conversion, not ranking — label accordingly
+
+**Caching:**
+- New file: `data/listing-benchmarks.json` — object keyed by listing_id
+- Each entry: `{ keywords_used: string[], competitors_pulled: number, computed_at: string, metrics: { price, demand, tags, photos } }`
+- Cache is invalidated if the listing's saved keywords change (compare keywords_used vs current saved keywords)
+
+**New API routes needed:**
+- `GET /api/etsy/listings/[id]/benchmarks` — checks cache; if miss or stale, pulls competitors for each keyword, computes metrics, writes cache, returns result
+- No write routes — benchmarks are read-only analysis
+
+**New etsy-client functions needed:** none — competitor pull already exists in `keyword-research.ts` via `performKeywordResearch`. The benchmarks route reuses this.
+
+**Where it lives in the UI:**
+- New "Benchmarks" tab in the detail panel (alongside Details / Images / SEO Score / AI Recs)
+- OR: section inside the Details tab below the KPI boxes — discuss with user before building
+
+**Implementation steps:**
+- [ ] src/app/api/etsy/listings/[id]/benchmarks/route.ts (NEW): GET — read keywords from listing-keywords.json; if none, return { error: "no_keywords" }; fetch competitors per keyword; dedup; sort by num_favorers; compute 4 metrics; write to listing-benchmarks.json; return metrics + metadata
+- [ ] data/listing-benchmarks.json: new cache file (add to .gitignore)
+- [ ] page.tsx: new Benchmarks tab (or section) — show 4 metric cards with color-coded flags; "Run Benchmark" / "Refresh" button; "Last updated: X" timestamp; "No keywords set" prompt if applicable
+- [ ] page.tsx: invalidate benchmark cache display if listing keywords change (compare keywords_used in cache vs current keywords state)
+
+---
+
+### FEATURE 3: Attribute Fill Rate
+
+**Purpose:** Each unfilled attribute on a listing is a missed search query match. Etsy confirmed attributes count as additional tags — they match search queries just like tags do, but don't consume tag slots. An unfilled "color" attribute makes the listing invisible to color-filtered searches.
+
+**Data flow:**
+1. Fetch available attributes: `GET /seller-taxonomy/nodes/{taxonomy_id}/properties` — returns all attribute definitions for the listing's category (e.g. Primary Color, Occasion, Style, Material, Finish)
+2. Fetch current attributes: `GET /shops/{shop_id}/listings/{listing_id}/properties` — returns what's currently set
+3. Diff: available property_ids not present in current properties = gaps
+4. For each gap: show property name + all available value options from taxonomy
+5. Suggest best value(s) per gap — rule-based matching against listing title, tags, materials:
+   - If property name is "Primary Color" and listing title/materials contain "white" → suggest "White"
+   - If property name is "Material" and listing.materials = ["PLA", "3D printed"] → suggest from taxonomy values that match
+   - If no match found: show all available values for manual selection — do NOT auto-suggest a wrong value
+6. "Apply" button per attribute → writes via PUT, logs to /api/logs
+7. Fill rate score: `filled / total × 100` — shown as % with RED < 60% / YELLOW 60–80% / GREEN > 80%
+
+**Caching:**
+- Taxonomy properties change rarely (monthly at most) — cache in `data/taxonomy-properties.json` keyed by taxonomy_id
+- Cache TTL: 30 days — avoids repeated calls to the same taxonomy node
+- Listing properties (what's currently filled) are NOT cached — always fetch fresh to reflect recent writes
+
+**New API routes needed:**
+- `GET /api/etsy/listings/[id]/attributes` — fetches taxonomy properties (from cache or API) + current listing properties; diffs; returns { fillRate, filled, total, gaps: [{ property_id, name, filled_values, available_values, suggested_values }] }
+- `PUT /api/etsy/listings/[id]/attributes/[propertyId]` — writes a single attribute via Etsy PUT endpoint; logs to /api/logs
+
+**New etsy-client functions needed:**
+- `getTaxonomyProperties(taxonomyId: number)` — GET /seller-taxonomy/nodes/{taxonomyId}/properties
+- `getListingProperties(listingId: number)` — GET /shops/{SHOP_ID}/listings/{listingId}/properties
+- `updateListingProperty(listingId: number, propertyId: number, valueIds: number[], values: string[])` — PUT /shops/{SHOP_ID}/listings/{listingId}/properties/{propertyId}
+
+**Where it lives in the UI:**
+- New section in the AI Recs tab, below alt texts — titled "Attributes"
+- Shows fill rate score (color-coded %)
+- Lists each gap as a row: attribute name | available values (dropdown or badges) | suggested value (pre-selected if confident) | Apply button
+- Apply button states: idle → Applying... → Applied! (green) / Error (red, retry)
+- After apply: re-fetch listing properties to update fill rate score
+
+**Important constraint:** `updateListingProperty` is a write operation — must follow the same warning and UI-only trigger rules as all other write ops. NEVER call from scripts or curl.
+
+**Implementation steps:**
+- [ ] etsy-client.ts: add getTaxonomyProperties(taxonomyId)
+- [ ] etsy-client.ts: add getListingProperties(listingId)
+- [ ] etsy-client.ts: add updateListingProperty(listingId, propertyId, valueIds, values)
+- [ ] data/taxonomy-properties.json: new cache file (add to .gitignore)
+- [ ] src/app/api/etsy/listings/[id]/attributes/route.ts (NEW): GET — fetch taxonomy props (cache-first, 30d TTL); fetch listing props (always fresh); diff; compute fill rate; return structured gaps with suggestions
+- [ ] src/app/api/etsy/listings/[id]/attributes/[propertyId]/route.ts (NEW): PUT — validate body; call updateListingProperty; log to /api/logs; return {ok:true}
+- [ ] page.tsx: Attributes section in AI Recs tab — fill rate score, gap rows with apply buttons, state for per-property status (idle/applying/done/error)
+
+---
+
 ## Backlog — Bugs & Features
 
 ### Bugs
