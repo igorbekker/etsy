@@ -78,3 +78,7 @@
 ## 19. Build passing is not verification — actually run and test the feature
 **Violated.** /pre declared "build passes" as sufficient verification. User had to call it out: the new cache feature had never been exercised end-to-end.
 **Rule:** For every feature: (a) start the app, (b) hit the relevant endpoints with curl, (c) confirm the actual behavior matches the spec. `npm run build` only proves it compiles — not that it works.
+
+## 20. Never commit without /pre — even for small bug fixes
+**Violated twice in one session.** Committed the OAuth callback fix directly without stopping for /pre. Also interpreted "/pre then commit/deploy" as blanket authorization to skip the confirmation step in /pre.
+**Rule:** EVERY commit requires /pre, no exceptions. "Then commit/deploy" in /pre args means the user pre-approves after /pre completes — it does not skip /pre. Step 8 of /pre always requires explicitly saying "Ready to commit. Please approve." and waiting.

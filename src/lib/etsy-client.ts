@@ -144,7 +144,7 @@ async function oauthFetch(endpoint: string): Promise<Response> {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     headers: {
       Authorization: `Bearer ${token}`,
-      "x-api-key": ETSY_API_KEY,
+      "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
     },
   });
   if (res.status === 429) {
