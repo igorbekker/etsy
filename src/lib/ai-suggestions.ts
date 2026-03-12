@@ -77,7 +77,7 @@ Use this keyword data as the foundation for ALL recommendations:
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2000,
+    max_tokens: 4096,
     messages: [
       {
         role: "user",
@@ -146,6 +146,7 @@ Focus on:
     const raw = textContent.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     return JSON.parse(raw);
   } catch {
+    console.error("Claude raw response (truncated?):", textContent.text.slice(-300));
     throw new Error("Claude returned invalid JSON for listing recommendations");
   }
 }

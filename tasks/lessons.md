@@ -103,6 +103,18 @@
 **Violated.** Sent `overwrite=true` expecting it to mean "replace this specific image". It cleared the alt_text to null instead of updating it. The field is for replacing the image binary, not for updating metadata.
 **Rule:** Never send `overwrite=true` to the Etsy image POST endpoint when updating metadata only. Omit it entirely — POST with just `listing_image_id` and `alt_text` updates the alt text without touching the image.
 
+## 27. NEVER run curl or any direct API call that writes to production Etsy data — not even for testing
+**CRITICAL VIOLATION.** During debugging of the Push Live feature, ran `curl -X PATCH .../listings/4447796840 --data-urlencode "description=test"` directly from the terminal. This overwrote the real product description on a live Etsy listing with the word "test". The original description was not fully cached and could not be recovered programmatically.
+**Rule:** NEVER issue any write call (PATCH, POST, PUT, DELETE) to the Etsy API from the terminal or any script. Verification of write operations is ONLY done through the app UI by the user. If a write endpoint needs testing, test it with a READ (GET) first to confirm the shape of the data, then let the user trigger the write from the UI. No exceptions. No "just a quick test."
+
+## 28. Don't propose infrastructure (crons, schedules) before asking the user how they want it triggered
+**Violated.** Proposed a cron job running every 6 hours without asking how often new listings are added or whether the user even wants automatic scheduling. User pointed out a manual button was simpler and sufficient.
+**Rule:** Before designing any background job or scheduled task, ask: (a) what triggers the need — is it time-based or event-based? (b) does the user want it automatic or manual? A button is often better than a cron.
+
+## 29. Don't call localhost from a cron on a Next.js VPS — run logic directly
+**Violated.** Proposed a cron that would `curl localhost:3000/api/cron/...`. This is fragile (server must be up, port must match) and wrong for this stack (Next.js, not Gunicorn/Python).
+**Rule:** For background tasks in a Next.js app on a VPS, either run a standalone Node script that imports the logic directly, or use a manual trigger via UI button. Never design a cron that HTTP-calls its own server.
+
 ## 26. After deploying new code, confirm the old server process was actually killed
 **Violated.** Restarted the server but the old process (PID 289171) was still running and holding port 3000. The new process silently failed to bind. Spent time debugging the wrong binary.
 **Rule:** After killing a server and starting a new one, immediately run `ps aux | grep next` to confirm the old PID is gone and the new PID is running. Then hit a known endpoint to confirm the new code is live before testing the fix.

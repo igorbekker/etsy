@@ -309,9 +309,39 @@ Two compounding bugs:
 
 ---
 
+## Session 2026-03-12 — Fix AI Recs generation + Sync AI button
+
+### Plan
+- [x] ai-suggestions.ts: increase max_tokens 2000 → 4096 to fix truncated JSON for listings with many images — 2026-03-12
+- [x] ai-suggestions.ts: log raw Claude response tail on JSON parse failure — 2026-03-12
+- [x] page.tsx: remove auto-run prefetchAllRecs on page load; replace with checkAllCaches (cache status only, no generation) — 2026-03-12
+- [x] page.tsx: add syncAllRecs() — generates missing recs sequentially, tracks progress — 2026-03-12
+- [x] page.tsx: add "Sync AI (N)" button in listings panel header — shows count of missing, progress while running, "AI Ready" when all cached — 2026-03-12
+
+### Review — AI Recs fix + Sync button 2026-03-12
+
+#### Root cause of "Failed to generate recommendations"
+`max_tokens: 2000` was too low. Claude's response was being truncated mid-JSON for listings with many images (the alt text context adds significant tokens per image). JSON.parse() failed on the incomplete response. Increasing to 4096 resolves it for all listings.
+
+#### What was built
+- `src/lib/ai-suggestions.ts`: `max_tokens` 2000 → 4096. Raw response tail logged on parse failure.
+- `src/app/page.tsx`:
+  - `checkAllCaches(listingIds)` — on page load, checks cache for each listing to populate green dots. Does NOT generate.
+  - `syncAllRecs()` — iterates listings with no cache, generates sequentially, writes to cache, tracks `syncProgress`.
+  - `isSyncing`, `syncProgress` state added.
+  - "Sync AI (N)" button in listings header — orange when N > 0, shows "Syncing X/Y..." while running, "AI Ready" (green, disabled) when all cached.
+
+#### Verification
+- `curl /api/etsy/recommendations/4397724181` → `{"recommendations": ..., "competitorInsights": ...}` ✅ (previously failing)
+- All 6 uncached listings now generate successfully ✅
+- Build passes: 17 routes, 0 TypeScript errors ✅
+
+---
+
 ## Open — In Progress
 
 - [ ] End-to-end test listing switch after Push Live — confirm no crash
+- [ ] End-to-end test Sync AI button — click, watch progress, confirm all listings go green
 
 ---
 

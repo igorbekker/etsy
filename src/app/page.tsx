@@ -1269,6 +1269,8 @@ export default function Dashboard() {
   const [sortMode, setSortMode] = useState<SortMode>("priority");
   const [prefetchingId, setPrefetchingId] = useState<number | null>(null);
   const [prefetchedIds, setPrefetchedIds] = useState<Set<number>>(new Set());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     fetchListings();
@@ -1281,7 +1283,7 @@ export default function Dashboard() {
       const data = await res.json();
       setListings(data.listings);
       fetchScores();
-      prefetchAllRecs(data.listings.map((l: Listing) => l.listing_id));
+      checkAllCaches(data.listings.map((l: Listing) => l.listing_id));
     } catch {
       setError("Failed to fetch listings");
     } finally {
@@ -1289,36 +1291,43 @@ export default function Dashboard() {
     }
   }
 
-  async function prefetchAllRecs(listingIds: number[]) {
+  async function checkAllCaches(listingIds: number[]) {
     for (const id of listingIds) {
       try {
-        const cacheRes = await fetch(`/api/etsy/recommendations/cache/${id}`);
-        const cacheData = await cacheRes.json();
-        if (cacheData.recommendations) {
+        const res = await fetch(`/api/etsy/recommendations/cache/${id}`);
+        const data = await res.json();
+        if (data.recommendations) {
           setPrefetchedIds((prev) => new Set([...prev, id]));
-          continue;
         }
-      } catch {
-        // Cache check failed — proceed to generate
-      }
+      } catch {}
+    }
+  }
 
-      setPrefetchingId(id);
+  async function syncAllRecs() {
+    if (isSyncing) return;
+    const missing = listings.filter((l) => !prefetchedIds.has(l.listing_id));
+    if (missing.length === 0) return;
+    setIsSyncing(true);
+    setSyncProgress({ done: 0, total: missing.length });
+    for (const l of missing) {
+      setPrefetchingId(l.listing_id);
       try {
-        const res = await fetch(`/api/etsy/recommendations/${id}`);
+        const res = await fetch(`/api/etsy/recommendations/${l.listing_id}`);
         if (res.ok) {
           const data = await res.json();
-          await fetch(`/api/etsy/recommendations/cache/${id}`, {
+          await fetch(`/api/etsy/recommendations/cache/${l.listing_id}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ recommendations: data.recommendations, competitorInsights: data.competitorInsights }),
           });
-          setPrefetchedIds((prev) => new Set([...prev, id]));
+          setPrefetchedIds((prev) => new Set([...prev, l.listing_id]));
         }
-      } catch {
-        // Prefetch failed — non-critical, user can still generate on demand
-      }
+      } catch {}
       setPrefetchingId(null);
+      setSyncProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : null);
     }
+    setIsSyncing(false);
+    setSyncProgress(null);
   }
 
   async function fetchScores() {
@@ -1427,7 +1436,31 @@ export default function Dashboard() {
           <div className="w-[480px] flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-900">
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
               <span className="text-xs text-gray-400 font-medium">{listings.length} listings</span>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const missing = listings.filter((l) => !prefetchedIds.has(l.listing_id)).length;
+                  const allReady = missing === 0 && listings.length > 0;
+                  return (
+                    <button
+                      onClick={syncAllRecs}
+                      disabled={isSyncing || allReady}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                        allReady
+                          ? "bg-green-900 text-green-400 cursor-default"
+                          : isSyncing
+                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                          : "bg-orange-700 hover:bg-orange-600 text-white"
+                      }`}
+                    >
+                      {allReady
+                        ? "AI Ready"
+                        : isSyncing && syncProgress
+                        ? `Syncing ${syncProgress.done}/${syncProgress.total}...`
+                        : `Sync AI (${missing})`}
+                    </button>
+                  );
+                })()}
+                <div className="flex gap-1">
                 {(["priority", "views", "title"] as SortMode[]).map((mode) => (
                   <button
                     key={mode}
@@ -1439,6 +1472,7 @@ export default function Dashboard() {
                     {mode}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 
