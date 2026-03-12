@@ -182,7 +182,7 @@ async function etsyFetch(
   const token = await getValidToken();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    "x-api-key": ETSY_API_KEY,
+    "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
     ...(options.headers as Record<string, string>),
   };
 

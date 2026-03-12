@@ -58,15 +58,45 @@
 
 **Phase 1 code is COMPLETE.** Not yet tested with real Etsy data.
 
-### Before resuming — user needs to:
-1. Register app at https://developers.etsy.com → get API key + shared secret
-2. Find shop ID (from Etsy shop URL or API)
-3. Run `node scripts/generate-jwt-secret.js` → copy to .env.local
-4. Run `node scripts/hash-password.js <password>` → copy to .env.local
-5. Add ANTHROPIC_API_KEY to .env.local
-6. `npm run dev` → test locally with real data
+---
 
-### When resuming — pick up with:
-- Verify app works end-to-end with real Etsy listings
-- Fix any issues found during real testing
-- Then move to Phase 2 (A/B testing, historical tracking, bulk export, auto-update images, scheduled re-analysis)
+## Session 2026-03-12 — Environment Setup
+
+### Plan
+- [ ] Get Etsy API credentials from user
+- [ ] Resolve shop ID via API call
+- [ ] Generate JWT secret
+- [ ] Hash app login password
+- [ ] Get Anthropic API key
+- [ ] Create .env.local with all values
+- [ ] Run app and verify end-to-end with real Etsy data
+
+### Progress
+- [x] Obtained Etsy API key + shared secret (app: myhomebymax-api) — 2026-03-12
+- [x] Resolved shop ID via curl to Etsy API → shop_id: 62898756 — 2026-03-12
+- [x] Ran `npm install` (dependencies were missing, bcryptjs not installed) — 2026-03-12
+- [x] Generated JWT_SECRET via `scripts/generate-jwt-secret.js` — 2026-03-12
+- [x] Hashed login password via `scripts/hash-password.js` — 2026-03-12
+- [x] Obtained ANTHROPIC_API_KEY from ~/.bashrc — 2026-03-12
+- [x] Created .env.local with all credentials — 2026-03-12
+- [x] Fixed x-api-key header in etsy-client.ts to send key:secret format — 2026-03-12
+- [x] Set up Cloudflare Tunnel (etsy-app) → etsy.bornganic.com — 2026-03-12
+- [x] Set up Cloudflare Access: restricted to bekker.igor@gmail.com via Google OAuth — 2026-03-12
+- [x] Started Next.js app (port 3000) and cloudflared tunnel — 2026-03-12
+- [x] Updated ETSY_REDIRECT_URI to https://etsy.bornganic.com/api/etsy/callback — 2026-03-12
+- [x] Switched Cloudflare Access to email OTP (no Google OAuth, no app login) — 2026-03-12
+- [x] Removed app login page, auth API routes, auth.ts, middleware JWT checks — 2026-03-12
+- [x] middleware.ts simplified to pass-through (Cloudflare Access is sole auth gate) — 2026-03-12
+- [ ] Add https://etsy.bornganic.com/api/etsy/callback to Etsy developer app (user action)
+- [ ] Connect Etsy OAuth via dashboard and verify end-to-end with real listings
+- [ ] Fix any issues found during real testing
+
+### Review — 2026-03-12
+- .env.local created with all required variables ✅
+- etsy-client.ts fixed: x-api-key now sends `key:secret` (required by Etsy API) ✅
+- Cloudflare Tunnel live: etsy.bornganic.com → localhost:3000 ✅
+- Cloudflare Access: email OTP only, restricted to bekker.igor@gmail.com ✅
+- App login page, /api/auth/*, auth.ts deleted — Cloudflare is sole auth gate ✅
+- middleware.ts is now a pass-through ✅
+- Build passes: 12 routes, 0 errors ✅
+- Pending: register Etsy OAuth callback URL in Etsy developer dashboard
