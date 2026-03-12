@@ -15,9 +15,9 @@
 **Violated repeatedly.** Both files were only updated during /pre, not as work happened.
 **Rule:** Mark todo.md items [x] the moment they are done. Update lessons.md the moment a correction happens — before resuming work. /pre is for verification, not first-time documentation.
 
-## 4. Never mark a task complete without proving it works
-**Violated.** Marked Cloudflare Access complete without visiting the URL to confirm the login gate worked.
-**Rule:** A checkbox only gets [x] after observable verification. For external-facing features, open the URL and confirm behavior.
+## 4. Never mark a task complete until every sub-item is done AND verified
+**Violated repeatedly.** Marked Cloudflare Access complete without confirming it worked. Marked features complete while dashboard was missing SEO scores, AI suggestions, and side-by-side view.
+**Rule:** A checkbox only gets [x] after observable proof — run it, open it, confirm it works. Every sub-item must be done. Partial implementation = in_progress. Backend endpoint without UI wired = NOT done.
 
 ## 5. Self-verify LINE BY LINE, not section by section
 **Violated 4 times in one session.** Each re-read found a new gap: missing files, outdated structure, backend without frontend wiring, missing UI fields.
@@ -39,38 +39,34 @@
 **Violated.** Token had DNS/tunnel permissions but not Access permissions — caused repeated 10000 auth errors.
 **Rule:** Before making Cloudflare API calls, verify the token has the exact permission scopes needed. Check token permissions before attempting API calls, not after failures.
 
-## 10. Don't mark tasks complete until ALL sub-items are done
-**Violated.** Marked features complete while dashboard was missing SEO scores, AI suggestions, and side-by-side view.
-**Rule:** A feature is done only when every bullet point is implemented AND verified. Partial = in_progress.
-
-## 11. Don't over-engineer storage
+## 10. Don't over-engineer storage
 **Violated.** Suggested SQL database for a single-user tool.
 **Rule:** Default to simplest storage (JSON files, env vars). Only suggest a database when there's a clear need for concurrent access or complex queries.
 
-## 12. Verify API claims before presenting them as fact
+## 11. Verify API claims before presenting them as fact
 **Violated.** Stated Etsy had no keyword API data without thorough research.
 **Rule:** Do a deep dive before making definitive API capability claims. Present findings with confidence levels, not absolutes.
 
-## 13. Ask about existing setup before assuming
+## 12. Ask about existing setup before assuming
 **Violated.** Initialized a local git repo without asking about the existing remote.
 **Rule:** Before any git setup, ask for the remote repo URL. Don't assume it doesn't exist.
 
-## 14. Wrap all JSON.parse() on external data in try-catch
+## 13. Wrap all JSON.parse() on external data in try-catch
 **Pattern.** AI response parsing had no error handling — any malformed response would 500.
 **Rule:** Any JSON.parse() on external data (AI, API, user input) must be wrapped in try-catch.
 
-## 15. Input validation runs first — before feature flags and mode checks
+## 14. Input validation runs first — before feature flags and mode checks
 **Pattern.** Keyword validation ran after DEMO_MODE check, causing undefined on missing input.
 **Rule:** Validate inputs at the very top of every handler, before any branching.
 
-## 16. Switch statements returning values need a default branch
+## 15. Switch statements returning values need a default branch
 **Pattern.** getSortedListings() had no default — TypeScript could infer undefined return.
 **Rule:** Always add default: return sorted to switch statements that return values.
 
-## 17. Flag double-login UX problems immediately
+## 16. Flag double-login UX problems immediately
 **Violated.** Set up Cloudflare Access but left internal login in place — two login steps. Never flagged it.
 **Rule:** When a user says "log in with X," confirm whether that's the ONLY gate or an additional layer.
 
-## 18. Never use recursive self-calls as a fallback
+## 17. Never use recursive self-calls as a fallback
 **Pattern.** getMockRecommendations() called itself as not-found fallback — infinite recursion risk.
 **Rule:** Fallbacks must use direct data access, not recursive calls.
