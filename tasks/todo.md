@@ -265,29 +265,34 @@ Visit `/api/etsy/connect` to re-authorize with `listings_w` scope. Push Live wil
 
 ---
 
-## Session 2026-03-12 — Fix Push Live URL (shop-scoped write endpoint)
+## Session 2026-03-12 — Fix Push Live (correct method + URL for image alt text)
 
 ### Plan
-- [x] etsy-client.ts: updateListingImageAltText — change URL from /application/listings/{id}/images/{imageId} to /application/shops/{shopId}/listings/{id}/images/{imageId} — 2026-03-12
+- [x] etsy-client.ts: updateListingImageAltText — change PATCH to POST, use shop-scoped images URL, pass listing_image_id — 2026-03-12
+- [x] route.ts: remove stale "Resource not found" → scope error handler (no longer relevant) — 2026-03-12
 
-### Review — Push Live URL Fix 2026-03-12
+### Review — Push Live Fix 2026-03-12
 
-#### Root cause
-Etsy v3 write operations (PATCH/PUT/DELETE) require a shop-scoped URL (`/application/shops/{shop_id}/listings/{id}/...`). Read operations work on the direct listing URL (`/application/listings/{id}`). Using the non-shop URL for writes returns 404 "Resource not found" — same misleading error as a missing OAuth scope.
+#### Root cause (full picture)
+Two compounding bugs:
+1. Wrong URL — used `/application/listings/{id}/images/{imageId}` (non-shop-scoped). Write ops require `/application/shops/{shop_id}/listings/{id}/images`.
+2. Wrong method — Etsy v3 has **no PATCH endpoint for images**. The only write method is POST to the images endpoint with `listing_image_id` (existing image) + `alt_text`. Using PATCH returns 404 regardless of URL or scope.
 
 #### What was fixed
-- `src/lib/etsy-client.ts` `updateListingImageAltText()`: URL changed from `/application/listings/${listingId}/images/${imageId}` → `/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images/${imageId}`
+- `src/lib/etsy-client.ts` `updateListingImageAltText()`: Changed from `PATCH /application/listings/{id}/images/{imageId}` → `POST /application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images` with body `{ listing_image_id, alt_text }`.
+- `src/app/api/etsy/listings/[id]/images/[imageId]/route.ts`: Removed the "Resource not found" → scope error handler (was masking the real error with a misleading message).
 
 #### Verification
-- Direct curl test confirmed: PATCH to shop-scoped URL → HTTP 200 ✅
-- PATCH to non-shop URL → 404 (root cause confirmed) ✅
+- `curl POST /application/shops/62898756/listings/4447796840/images` with `listing_image_id=7747199185&alt_text=test alt text` → `{"alt_text": "test alt text"}` ✅
+- `curl GET /application/listings/4447796840/images/7747199185` → `alt_text: 'christian bookend cross book holder'` confirmed written to Etsy ✅
+- App route `PATCH /api/etsy/listings/4447796840/images/7747199185` → `{"ok":true}` ✅
 - Build passes: 17 routes, 0 TypeScript errors ✅
 
 ---
 
 ## Open — In Progress
 
-- [ ] End-to-end test Push Live with corrected URL in browser
+- [ ] End-to-end test Push Live in browser and confirm log entry recorded
 
 ---
 

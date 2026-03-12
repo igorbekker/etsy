@@ -316,10 +316,11 @@ export async function updateListingImageAltText(
   imageId: number,
   altText: string
 ): Promise<void> {
-  const res = await oauthFetch(`/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images/${imageId}`, {
-    method: "PATCH",
+  // Etsy v3 has no PATCH for images. Re-POST with existing listing_image_id + overwrite=true to update alt_text.
+  const res = await oauthFetch(`/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/images`, {
+    method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ alt_text: altText }),
+    body: new URLSearchParams({ listing_image_id: String(imageId), alt_text: altText }),
   });
   if (!res.ok) throw new Error(`Failed to update alt text: ${await res.text()}`);
 }

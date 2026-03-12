@@ -94,3 +94,15 @@
 ## 23. Etsy v3 write operations require shop-scoped URLs — not direct listing URLs
 **Pattern.** PATCH `/application/listings/{id}/images/{imageId}` returned 404. PATCH `/application/shops/{shop_id}/listings/{id}/images/{imageId}` returned 200. Same token, same scope, same image. Only the URL differed.
 **Rule:** All Etsy v3 write operations (PATCH/PUT/DELETE on listings/images) must use the shop-scoped URL pattern `/application/shops/${ETSY_SHOP_ID}/listings/{id}/...`. Read operations (GET) work on either URL. When a write returns 404 and scope is confirmed correct, check the URL pattern next.
+
+## 24. Etsy v3 has no PATCH endpoint for images — use POST with listing_image_id to update alt_text
+**Violated.** Built `updateListingImageAltText` using PATCH, which doesn't exist in Etsy v3. Spent multiple rounds debugging a 404 that was never going to resolve. The correct method is POST to `/application/shops/{shop_id}/listings/{listing_id}/images` with `listing_image_id` (existing image ID) and `alt_text`.
+**Rule:** Before building any write operation against Etsy, check the OpenAPI spec for the exact method. Image endpoints: GET (read), POST (create/update), DELETE only — no PATCH or PUT.
+
+## 25. overwrite=true on Etsy image POST clears fields not included in the request
+**Violated.** Sent `overwrite=true` expecting it to mean "replace this specific image". It cleared the alt_text to null instead of updating it. The field is for replacing the image binary, not for updating metadata.
+**Rule:** Never send `overwrite=true` to the Etsy image POST endpoint when updating metadata only. Omit it entirely — POST with just `listing_image_id` and `alt_text` updates the alt text without touching the image.
+
+## 26. After deploying new code, confirm the old server process was actually killed
+**Violated.** Restarted the server but the old process (PID 289171) was still running and holding port 3000. The new process silently failed to bind. Spent time debugging the wrong binary.
+**Rule:** After killing a server and starting a new one, immediately run `ps aux | grep next` to confirm the old PID is gone and the new PID is running. Then hit a known endpoint to confirm the new code is live before testing the fix.
