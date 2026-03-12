@@ -338,10 +338,36 @@ Two compounding bugs:
 
 ---
 
+## Session 2026-03-12 — Fix stale current values + Analyzing... bug
+
+### Plan
+- [x] page.tsx: add setRecsLoading(false) to useEffect reset — fixes "Analyzing..." persisting across listing switches — 2026-03-12
+- [x] page.tsx: Title/Description "Current" column reads live listing.title / listing.description instead of stale cached value — 2026-03-12
+- [x] page.tsx: Alt text "Current" column reads live listing.images?.[alt.imageIndex]?.alt_text instead of stale cached alt.current — 2026-03-12
+- [x] page.tsx: pushAltText oldAltText param uses live image alt_text (for accurate log/revert) — 2026-03-12
+
+### Review — Stale current values + Analyzing... bug 2026-03-12
+
+#### Root causes
+1. **Stale current values (title, description, alt text)**: The AI recommendations cache stores a snapshot of the listing at generation time. The "Current" column was reading from that snapshot (`recommendations.title.current`, `recommendations.description.current`, `alt.current`), not from the live listing. After pushing alt texts live or editing a listing on Etsy, the cached snapshot was out of date.
+2. **"Analyzing..." on cached listings**: The `useEffect` that resets `DetailPanel` state on listing switch was resetting `recommendations` to null but NOT `recsLoading`. If generation was in-flight on a previous listing, `recsLoading` stayed `true` when switching — the AI Recs tab showed "Analyzing..." permanently for the new listing even when its cache was ready.
+
+#### What was fixed
+- `useEffect`: added `setRecsLoading(false)` to the listing-switch reset
+- Title current: `recommendations.title.current` → `listing.title`
+- Description current: `recommendations.description.current` → `listing.description`
+- Alt text current display: `alt.current` → `listing.images?.[alt.imageIndex]?.alt_text || alt.current`
+- Alt text push/log: `alt.current` → `listing.images?.[alt.imageIndex]?.alt_text ?? alt.current`
+
+#### Verification
+- Build passes: 17 routes, 0 TypeScript errors ✅
+
+---
+
 ## Open — In Progress
 
-- [ ] End-to-end test listing switch after Push Live — confirm no crash
-- [ ] End-to-end test Sync AI button — click, watch progress, confirm all listings go green
+- [ ] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state
+- [ ] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value
 
 ---
 

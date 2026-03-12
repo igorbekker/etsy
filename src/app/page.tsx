@@ -155,6 +155,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   useEffect(() => {
     setActiveTab("details");
     setRecommendations(null);
+    setRecsLoading(false);
     setRecsError("");
     setRecsGeneratedAt(null);
     setKeywords({ primary: "", secondary: ["", ""] });
@@ -569,8 +570,8 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 </div>
 
                 {([
-                  { label: "Title", reasoning: recommendations.title.reasoning, left: recommendations.title.current, right: recommendations.title.recommended },
-                  { label: "Description", reasoning: recommendations.description.reasoning, left: recommendations.description.current, right: recommendations.description.recommended },
+                  { label: "Title", reasoning: recommendations.title.reasoning, left: listing.title, right: recommendations.title.recommended },
+                  { label: "Description", reasoning: recommendations.description.reasoning, left: listing.description, right: recommendations.description.recommended },
                 ]).map(({ label, reasoning, left, right }) => (
                   <section key={label} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-700">
@@ -639,14 +640,14 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                           <div key={i} className="grid grid-cols-2 divide-x divide-gray-700">
                             <div className="p-3">
                               <p className="text-xs text-gray-500 mb-1">Image {alt.imageIndex + 1} — Current</p>
-                              <p className="text-sm text-gray-300">{alt.current || "(empty)"}</p>
+                              <p className="text-sm text-gray-300">{listing.images?.[alt.imageIndex]?.alt_text || alt.current || "(empty)"}</p>
                             </div>
                             <div className="p-3">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-xs text-green-500">Recommended</p>
                                 {imageId !== undefined && (
                                   <button
-                                    onClick={() => pushAltText(imageId, alt.recommended, alt.current, alt.imageIndex)}
+                                    onClick={() => pushAltText(imageId, alt.recommended, listing.images?.[alt.imageIndex]?.alt_text ?? alt.current, alt.imageIndex)}
                                     disabled={status === "pushing" || status === "done"}
                                     className={`px-2 py-1 text-xs rounded transition-colors flex-shrink-0 ${
                                       status === "done" ? "bg-green-700 text-green-200" :
