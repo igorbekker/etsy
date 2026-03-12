@@ -371,6 +371,38 @@ Two compounding bugs:
 
 ---
 
+## Session 2026-03-12 — Push Live for title, tags, description
+
+### Plan
+- [x] etsy-client.ts: add updateListing(listingId, fields: {title?, tags?, description?}) — PATCH /listings/{id} — 2026-03-12
+- [x] api/etsy/listings/[id]/route.ts: add PATCH handler — accepts {field, value}, calls updateListing, returns {ok:true} — 2026-03-12
+- [x] page.tsx: add fieldStatus + fieldErrors state (keyed by "title"|"tags"|"description") — 2026-03-12
+- [x] page.tsx: add pushField(field, newValue, oldValue) — calls PATCH route, logs to /api/logs on success — 2026-03-12
+- [x] page.tsx: reset fieldStatus + fieldErrors on listing switch (useEffect) — 2026-03-12
+- [x] page.tsx: Title section — add Push Live button alongside existing Copy button — 2026-03-12
+- [x] page.tsx: Description section — add Push Live button alongside existing Copy button — 2026-03-12
+- [x] page.tsx: Tags section — add Push Live button alongside existing Copy button — 2026-03-12
+
+### Review — Push Live for title, tags, description 2026-03-12
+
+#### What was built
+- **`etsy-client.ts`** — `updateListing(listingId, fields)`: PATCH `/application/listings/{listing_id}` with URL-encoded body. Accepts `title` (string), `description` (string), `tags[]` (repeated param). Sits under the existing write ops warning comment.
+- **`api/etsy/listings/[id]/route.ts`** — Added `PATCH` handler: validates `field` is one of `title|tags|description`, calls `updateListing`, returns `{ok:true}`. Auth errors (401) return a re-authorize message.
+- **`page.tsx`** — `fieldStatus` + `fieldErrors` state (Record keyed by field name). `pushField(field, newValue, oldValue)` function: calls PATCH route, writes to `/api/logs` on success (same log schema as alt text, no `image_index`/`image_id`). Both states reset on listing switch in `useEffect`.
+- **UI** — Title and Description sections: Push Live button added alongside Copy button in the Recommended header. Tags section: same. Button states: orange → Pushing... → Pushed! (green, disabled) or Retry (red, re-clickable). Error message shown below button on failure.
+
+#### Verification
+- `npm run build` passes: 0 TypeScript errors ✅
+- Server started, `GET /api/etsy/listings/4447796840` returns listing with correct title ✅
+- PATCH route input validation: invalid field → 400, missing body → 400 ✅
+- UI buttons render in correct positions alongside Copy buttons ✅
+
+#### Notes
+- Tags PATCH sends `tags[]` as repeated URL-encoded params — Etsy v3 expects array notation
+- Logs entry for field pushes omits `image_index`/`image_id` (null) — log schema already supports this
+
+---
+
 ## Session 2026-03-12 — CLAUDE.md: remove shipping flag
 
 ### Plan

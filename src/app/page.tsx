@@ -151,6 +151,8 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [competitorInsights, setCompetitorInsights] = useState<CompetitorInsights | null>(null);
   const [altTextStatus, setAltTextStatus] = useState<Record<number, "pushing" | "done" | "error">>({});
   const [altTextErrors, setAltTextErrors] = useState<Record<number, string>>({});
+  const [fieldStatus, setFieldStatus] = useState<Record<string, "pushing" | "done" | "error">>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setActiveTab("details");
@@ -164,6 +166,8 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setCompetitorInsights(null);
     setAltTextStatus({});
     setAltTextErrors({});
+    setFieldStatus({});
+    setFieldErrors({});
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -265,6 +269,37 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     } catch (err) {
       setAltTextStatus((prev) => ({ ...prev, [imageId]: "error" }));
       setAltTextErrors((prev) => ({ ...prev, [imageId]: err instanceof Error ? err.message : "Unknown error" }));
+    }
+  }
+
+  async function pushField(field: "title" | "tags" | "description", newValue: string | string[], oldValue: string | string[]) {
+    setFieldStatus((prev) => ({ ...prev, [field]: "pushing" }));
+    setFieldErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    try {
+      const res = await fetch(`/api/etsy/listings/${listing.listing_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value: newValue }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server error (${res.status})`);
+      }
+      setFieldStatus((prev) => ({ ...prev, [field]: "done" }));
+      fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listing_id: listing.listing_id,
+          listing_title: listing.title,
+          field,
+          old_value: Array.isArray(oldValue) ? oldValue.join(", ") : oldValue,
+          new_value: Array.isArray(newValue) ? newValue.join(", ") : newValue,
+        }),
+      }).catch(() => {});
+    } catch (err) {
+      setFieldStatus((prev) => ({ ...prev, [field]: "error" }));
+      setFieldErrors((prev) => ({ ...prev, [field]: err instanceof Error ? err.message : "Unknown error" }));
     }
   }
 
@@ -570,9 +605,11 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 </div>
 
                 {([
-                  { label: "Title", reasoning: recommendations.title.reasoning, left: listing.title, right: recommendations.title.recommended },
-                  { label: "Description", reasoning: recommendations.description.reasoning, left: listing.description, right: recommendations.description.recommended },
-                ]).map(({ label, reasoning, left, right }) => (
+                  { label: "Title", field: "title" as const, reasoning: recommendations.title.reasoning, left: listing.title, right: recommendations.title.recommended },
+                  { label: "Description", field: "description" as const, reasoning: recommendations.description.reasoning, left: listing.description, right: recommendations.description.recommended },
+                ]).map(({ label, field, reasoning, left, right }) => {
+                  const status = fieldStatus[field];
+                  return (
                   <section key={label} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-700">
                       <p className="text-sm font-medium text-white">{label}</p>
@@ -586,13 +623,30 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                       <div className="p-3">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-xs text-green-500 uppercase tracking-wider">Recommended</p>
-                          <CopyButton text={right} />
+                          <div className="flex items-center gap-1">
+                            <CopyButton text={right} />
+                            <button
+                              disabled={status === "pushing" || status === "done"}
+                              onClick={() => pushField(field, right, left)}
+                              className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                status === "done" ? "bg-green-900 text-green-400 cursor-default" :
+                                status === "error" ? "bg-red-900/50 text-red-400 hover:bg-red-900" :
+                                status === "pushing" ? "bg-gray-700 text-gray-400 cursor-not-allowed" :
+                                "bg-orange-700 hover:bg-orange-600 text-white"
+                              }`}
+                            >
+                              {status === "done" ? "Pushed!" : status === "pushing" ? "Pushing..." : status === "error" ? "Retry" : "Push Live"}
+                            </button>
+                          </div>
                         </div>
+                        {status === "error" && fieldErrors[field] && (
+                          <p className="text-xs text-red-400 mb-1">{fieldErrors[field]}</p>
+                        )}
                         <p className="text-sm text-white whitespace-pre-wrap max-h-48 overflow-y-auto">{right}</p>
                       </div>
                     </div>
                   </section>
-                ))}
+                );})}
 
                 <section className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-700">
@@ -611,8 +665,25 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-green-500 uppercase tracking-wider">Recommended ({recommendations.tags.recommended.length}/13)</p>
-                        <CopyButton text={recommendations.tags.recommended.join(", ")} />
+                        <div className="flex items-center gap-1">
+                          <CopyButton text={recommendations.tags.recommended.join(", ")} />
+                          <button
+                            disabled={fieldStatus["tags"] === "pushing" || fieldStatus["tags"] === "done"}
+                            onClick={() => pushField("tags", recommendations.tags.recommended, recommendations.tags.current)}
+                            className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                              fieldStatus["tags"] === "done" ? "bg-green-900 text-green-400 cursor-default" :
+                              fieldStatus["tags"] === "error" ? "bg-red-900/50 text-red-400 hover:bg-red-900" :
+                              fieldStatus["tags"] === "pushing" ? "bg-gray-700 text-gray-400 cursor-not-allowed" :
+                              "bg-orange-700 hover:bg-orange-600 text-white"
+                            }`}
+                          >
+                            {fieldStatus["tags"] === "done" ? "Pushed!" : fieldStatus["tags"] === "pushing" ? "Pushing..." : fieldStatus["tags"] === "error" ? "Retry" : "Push Live"}
+                          </button>
+                        </div>
                       </div>
+                      {fieldStatus["tags"] === "error" && fieldErrors["tags"] && (
+                        <p className="text-xs text-red-400 mb-1">{fieldErrors["tags"]}</p>
+                      )}
                       <div className="flex flex-wrap gap-1">
                         {recommendations.tags.recommended.map((tag, i) => {
                           const isNew = !recommendations.tags.current.includes(tag);

@@ -314,6 +314,22 @@ export async function searchListings(
 // ⚠️  They must ONLY be called from app API routes triggered by the user in the UI.
 // ⚠️  NEVER call these directly from scripts, curl, or test code.
 
+export async function updateListing(
+  listingId: number,
+  fields: { title?: string; tags?: string[]; description?: string }
+): Promise<void> {
+  const body = new URLSearchParams();
+  if (fields.title !== undefined) body.append("title", fields.title);
+  if (fields.description !== undefined) body.append("description", fields.description);
+  if (fields.tags !== undefined) fields.tags.forEach((t) => body.append("tags[]", t));
+  const res = await oauthFetch(`/application/listings/${listingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) throw new Error(`Failed to update listing: ${await res.text()}`);
+}
+
 export async function updateListingImageAltText(
   listingId: number,
   imageId: number,
