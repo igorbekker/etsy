@@ -224,13 +224,43 @@ Every competitor pull in the app must be driven by the listing's saved keywords 
 **Important constraint:** `updateListingProperty` is a write operation — must follow the same warning and UI-only trigger rules as all other write ops. NEVER call from scripts or curl.
 
 **Implementation steps:**
-- [ ] etsy-client.ts: add getTaxonomyProperties(taxonomyId)
-- [ ] etsy-client.ts: add getListingProperties(listingId)
-- [ ] etsy-client.ts: add updateListingProperty(listingId, propertyId, valueIds, values)
-- [ ] data/taxonomy-properties.json: new cache file (add to .gitignore)
-- [ ] src/app/api/etsy/listings/[id]/attributes/route.ts (NEW): GET — fetch taxonomy props (cache-first, 30d TTL); fetch listing props (always fresh); diff; compute fill rate; return structured gaps with suggestions
-- [ ] src/app/api/etsy/listings/[id]/attributes/[propertyId]/route.ts (NEW): PUT — validate body; call updateListingProperty; log to /api/logs; return {ok:true}
-- [ ] page.tsx: Attributes section in AI Recs tab — fill rate score, gap rows with apply buttons, state for per-property status (idle/applying/done/error)
+- [x] etsy-client.ts: add getTaxonomyProperties(taxonomyId) — 2026-03-12
+- [x] etsy-client.ts: add getListingProperties(listingId) — 2026-03-12
+- [x] etsy-client.ts: add updateListingProperty(listingId, propertyId, valueIds, values) — 2026-03-12
+- [x] data/taxonomy-properties.json: new cache file (data/ already in .gitignore) — 2026-03-12
+- [x] src/app/api/etsy/listings/[id]/attributes/route.ts (NEW): GET — fetch taxonomy props (cache-first, 30d TTL); fetch listing props (always fresh); diff; compute fill rate; return structured gaps with suggestions — 2026-03-12
+- [x] src/app/api/etsy/listings/[id]/attributes/[propertyId]/route.ts (NEW): PUT — validate body; call updateListingProperty; log to /api/logs; return {ok:true} — 2026-03-12
+- [x] page.tsx: Attributes section in AI Recs tab — fill rate score, gap rows with apply buttons, state for per-property status (idle/applying/done/error) — 2026-03-12
+
+### Review — Feature 3: Attribute Fill Rate 2026-03-12
+
+#### What was built
+- **`src/lib/etsy-client.ts`** — 3 new functions + 2 new interfaces:
+  - `TaxonomyProperty` interface — shape of Etsy taxonomy property (property_id, display_name, possible_values array)
+  - `ListingProperty` interface — shape of a filled listing property (property_id, property_name, value_ids, values)
+  - `getTaxonomyProperties(taxonomyId)` — GET /application/seller-taxonomy/nodes/{id}/properties (public, no OAuth)
+  - `getListingProperties(listingId)` — GET /application/shops/{id}/listings/{id}/properties (public)
+  - `updateListingProperty(listingId, propertyId, valueIds, values)` — PUT /application/shops/{id}/listings/{id}/properties/{id} (requires OAuth listings_w)
+- **`src/app/api/etsy/listings/[id]/attributes/route.ts`** (NEW) — GET handler:
+  - Accepts `taxonomy_id`, `title`, `tags`, `materials` as query params
+  - Taxonomy props: cache-first in `data/taxonomy-properties.json`, 30-day TTL
+  - Listing props: always fresh (never cached — must reflect recent writes)
+  - Diff by property_id → compute fill_rate, filled, total, gaps array
+  - Each gap includes: property_id, name, available_values, suggested_values (rule-based: match property name against title/tags/materials signals)
+- **`src/app/api/etsy/listings/[id]/attributes/[propertyId]/route.ts`** (NEW) — PUT handler:
+  - Validates value_ids + values arrays
+  - Calls updateListingProperty → logs to /api/logs (non-fatal if log fails)
+  - 401 on missing OAuth scope ("Resource not found" or "not_connected")
+- **`page.tsx`** — `AttributeRow` component (own useState for selected value), `AttributesResult`/`AttributeGap` interfaces, `fetchAttributes()` + `applyAttribute()` functions, Attributes section at bottom of AI Recs tab:
+  - "Check Attributes" button triggers fetch on demand
+  - Fill rate score with color bands (red <60%, yellow 60–80%, green ≥80%)
+  - Each gap row: dropdown pre-selected with suggested value, Apply button with idle/applying/done/error states
+  - After apply: re-fetches to update fill rate live
+
+#### Verification
+- Build passes: 0 TypeScript errors ✅
+- Added `React` import (needed for useState in AttributeRow outside DetailPanel) ✅
+- Routes registered in build output ✅
 
 ---
 

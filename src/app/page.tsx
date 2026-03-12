@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 // --- Types ---
 
@@ -104,6 +104,21 @@ interface BenchmarkResult {
   metrics: BenchmarkMetrics;
 }
 
+interface AttributeGap {
+  property_id: number;
+  name: string;
+  available_values: { value_id: number; name: string }[];
+  suggested_values: { value_id: number; name: string }[];
+}
+
+interface AttributesResult {
+  fill_rate: number;
+  filled: number;
+  total: number;
+  current_properties: { property_id: number; name: string; values: string[] }[];
+  gaps: AttributeGap[];
+}
+
 type SortMode = "priority" | "views" | "title";
 type DetailTab = "details" | "images" | "seo" | "recommendations" | "benchmarks";
 type TopTab = "listings" | "keywords" | "logs" | "glossary";
@@ -163,6 +178,68 @@ interface Keywords {
   secondary: [string, string];
 }
 
+function AttributeRow({
+  gap,
+  status,
+  error,
+  onApply,
+}: {
+  gap: AttributeGap;
+  status: "applying" | "done" | "error" | undefined;
+  error: string | undefined;
+  onApply: (gap: AttributeGap, valueId: number, valueName: string) => void;
+}) {
+  const defaultValue = gap.suggested_values[0] ?? gap.available_values[0];
+  const [selected, setSelected] = React.useState<{ value_id: number; name: string } | null>(defaultValue ?? null);
+
+  return (
+    <div className="bg-gray-750 border border-gray-700 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-white">{gap.name}</p>
+        {gap.suggested_values.length > 0 && (
+          <span className="text-xs text-indigo-400">Suggestion available</span>
+        )}
+      </div>
+
+      {gap.available_values.length > 0 ? (
+        <select
+          value={selected?.value_id ?? ""}
+          onChange={(e) => {
+            const v = gap.available_values.find((av) => av.value_id === Number(e.target.value));
+            setSelected(v ?? null);
+          }}
+          className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
+        >
+          <option value="">Select a value…</option>
+          {gap.available_values.map((v) => (
+            <option key={v.value_id} value={v.value_id}>{v.name}</option>
+          ))}
+        </select>
+      ) : (
+        <p className="text-xs text-gray-500">No predefined values — set manually in Etsy</p>
+      )}
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {gap.available_values.length > 0 && (
+        <button
+          disabled={!selected || status === "applying" || status === "done"}
+          onClick={() => selected && onApply(gap, selected.value_id, selected.name)}
+          className={`px-3 py-1.5 text-xs rounded transition-colors ${
+            status === "done" ? "bg-green-700 text-green-200" :
+            status === "error" ? "bg-red-700 text-red-200 hover:bg-red-600" :
+            status === "applying" ? "bg-gray-600 text-gray-400" :
+            !selected ? "bg-gray-700 text-gray-500 cursor-not-allowed" :
+            "bg-orange-700 hover:bg-orange-600 text-white"
+          }`}
+        >
+          {status === "done" ? "Applied!" : status === "applying" ? "Applying…" : status === "error" ? "Retry" : "Apply"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOScore | null }) {
   const [activeTab, setActiveTab] = useState<DetailTab>("details");
   const [recommendations, setRecommendations] = useState<AIRecommendations | null>(null);
@@ -180,6 +257,11 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [benchmarks, setBenchmarks] = useState<BenchmarkResult | null>(null);
   const [benchmarksLoading, setBenchmarksLoading] = useState(false);
   const [benchmarksError, setBenchmarksError] = useState("");
+  const [attributes, setAttributes] = useState<AttributesResult | null>(null);
+  const [attributesLoading, setAttributesLoading] = useState(false);
+  const [attributesError, setAttributesError] = useState("");
+  const [attrStatus, setAttrStatus] = useState<Record<number, "applying" | "done" | "error">>({});
+  const [attrErrors, setAttrErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
     setActiveTab("details");
@@ -198,6 +280,11 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setBenchmarks(null);
     setBenchmarksLoading(false);
     setBenchmarksError("");
+    setAttributes(null);
+    setAttributesLoading(false);
+    setAttributesError("");
+    setAttrStatus({});
+    setAttrErrors({});
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -353,6 +440,53 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       setBenchmarksError("Failed to load benchmarks");
     } finally {
       setBenchmarksLoading(false);
+    }
+  }
+
+  async function fetchAttributes() {
+    setAttributesLoading(true);
+    setAttributesError("");
+    const params = new URLSearchParams({
+      taxonomy_id: String(listing.taxonomy_id),
+      title: listing.title,
+      tags: listing.tags.join(" "),
+      materials: listing.materials.join(" "),
+    });
+    try {
+      const res = await fetch(`/api/etsy/listings/${listing.listing_id}/attributes?${params}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setAttributesError(data.error || "Failed to load attributes");
+        return;
+      }
+      setAttributes(data);
+    } catch {
+      setAttributesError("Failed to load attributes");
+    } finally {
+      setAttributesLoading(false);
+    }
+  }
+
+  async function applyAttribute(gap: AttributeGap, valueId: number, valueName: string) {
+    setAttrStatus((prev) => ({ ...prev, [gap.property_id]: "applying" }));
+    setAttrErrors((prev) => { const next = { ...prev }; delete next[gap.property_id]; return next; });
+    try {
+      const res = await fetch(
+        `/api/etsy/listings/${listing.listing_id}/attributes/${gap.property_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value_ids: [valueId], values: [valueName], property_name: gap.name }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Apply failed");
+      setAttrStatus((prev) => ({ ...prev, [gap.property_id]: "done" }));
+      // Re-fetch to update fill rate
+      await fetchAttributes();
+    } catch (err) {
+      setAttrStatus((prev) => ({ ...prev, [gap.property_id]: "error" }));
+      setAttrErrors((prev) => ({ ...prev, [gap.property_id]: err instanceof Error ? err.message : "Unknown error" }));
     }
   }
 
@@ -867,6 +1001,81 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                     </div>
                   </section>
                 )}
+
+              {/* Attributes Section */}
+              <section className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">Attributes</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Unfilled attributes are invisible to filtered searches on Etsy</p>
+                  </div>
+                  {!attributes && !attributesLoading && (
+                    <button
+                      onClick={fetchAttributes}
+                      className="px-3 py-1.5 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded transition-colors"
+                    >
+                      Check Attributes
+                    </button>
+                  )}
+                  {attributes && (
+                    <button
+                      onClick={fetchAttributes}
+                      className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                    >
+                      Refresh
+                    </button>
+                  )}
+                </div>
+
+                {attributesLoading && (
+                  <div className="px-4 py-6 text-center text-sm text-gray-400">Checking attributes…</div>
+                )}
+
+                {attributesError && !attributesLoading && (
+                  <div className="px-4 py-4 text-sm text-red-400">{attributesError}</div>
+                )}
+
+                {attributes && !attributesLoading && (
+                  <div className="p-4 space-y-4">
+                    {/* Fill rate score */}
+                    <div className="flex items-center gap-3">
+                      <span className={`text-2xl font-bold ${
+                        attributes.fill_rate >= 80 ? "text-green-400" :
+                        attributes.fill_rate >= 60 ? "text-yellow-400" : "text-red-400"
+                      }`}>{attributes.fill_rate}%</span>
+                      <div>
+                        <p className="text-sm text-white">Attribute Fill Rate</p>
+                        <p className="text-xs text-gray-500">{attributes.filled} of {attributes.total} attributes filled</p>
+                      </div>
+                      <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
+                        attributes.fill_rate >= 80 ? "bg-green-900 text-green-300" :
+                        attributes.fill_rate >= 60 ? "bg-yellow-900 text-yellow-300" : "bg-red-900 text-red-300"
+                      }`}>
+                        {attributes.fill_rate >= 80 ? "Good" : attributes.fill_rate >= 60 ? "Needs work" : "Critical"}
+                      </span>
+                    </div>
+
+                    {attributes.gaps.length === 0 && (
+                      <p className="text-sm text-green-400">All attributes filled — nothing to improve here.</p>
+                    )}
+
+                    {attributes.gaps.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">{attributes.gaps.length} unfilled attributes</p>
+                        {attributes.gaps.map((gap) => (
+                          <AttributeRow
+                            key={gap.property_id}
+                            gap={gap}
+                            status={attrStatus[gap.property_id]}
+                            error={attrErrors[gap.property_id]}
+                            onApply={applyAttribute}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
 
               </>
             )}

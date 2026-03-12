@@ -348,6 +348,69 @@ export async function updateListingImageAltText(
   if (!res.ok) throw new Error(`Failed to update alt text: ${await res.text()}`);
 }
 
+// --- Taxonomy & Listing Properties ---
+
+export interface TaxonomyProperty {
+  property_id: number;
+  name: string;
+  display_name: string;
+  supports_attributes: boolean;
+  supports_variations: boolean;
+  is_multivalued: boolean;
+  max_values_allowed: number | null;
+  possible_values: { value_id: number; name: string; scale_id: number | null; equal_to: number[] }[];
+  selected_values: { value_id: number; name: string; scale_id: number | null; equal_to: number[] }[] | null;
+}
+
+export interface ListingProperty {
+  property_id: number;
+  property_name: string;
+  scale_id: number | null;
+  scale_name: string | null;
+  value_ids: number[];
+  values: string[];
+}
+
+export async function getTaxonomyProperties(taxonomyId: number): Promise<TaxonomyProperty[]> {
+  const response = await etsyFetch(`/application/seller-taxonomy/nodes/${taxonomyId}/properties`);
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to fetch taxonomy properties: ${error}`);
+  }
+  const data = await response.json();
+  return data.results ?? [];
+}
+
+export async function getListingProperties(listingId: number): Promise<ListingProperty[]> {
+  const response = await etsyFetch(`/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/properties`);
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to fetch listing properties: ${error}`);
+  }
+  const data = await response.json();
+  return data.results ?? [];
+}
+
+export async function updateListingProperty(
+  listingId: number,
+  propertyId: number,
+  valueIds: number[],
+  values: string[]
+): Promise<void> {
+  const body = new URLSearchParams();
+  valueIds.forEach((id) => body.append("value_ids[]", String(id)));
+  values.forEach((v) => body.append("values[]", v));
+  const res = await oauthFetch(
+    `/application/shops/${ETSY_SHOP_ID}/listings/${listingId}/properties/${propertyId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    }
+  );
+  if (!res.ok) throw new Error(`Failed to update property: ${await res.text()}`);
+}
+
 export async function getListingUnitsSold(listingId: number): Promise<number> {
   let unitsSold = 0;
   let offset = 0;
