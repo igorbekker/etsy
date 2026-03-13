@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateListingProperty } from "@/lib/etsy-client";
+import { appendLogEntry } from "@/app/api/logs/route";
 
 export async function PUT(
   request: NextRequest,
@@ -28,15 +29,11 @@ export async function PUT(
 
     // Log to change log
     try {
-      await fetch(`${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/logs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listing_id: listingId,
-          field: `attribute:${body.property_name ?? propId}`,
-          old_value: "",
-          new_value: body.values.join(", "),
-        }),
+      appendLogEntry({
+        listing_id: listingId,
+        field: `attribute:${body.property_name ?? propId}`,
+        old_value: "",
+        new_value: body.values.join(", "),
       });
     } catch { /* log failure is non-fatal */ }
 

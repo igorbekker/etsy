@@ -816,6 +816,52 @@ CLAUDE.md updated with:
 
 ---
 
+## Session 2026-03-13 — Code Audit: Critical Fixes + page.tsx Split
+
+### Plan
+- [x] Fix Critical 3: Export appendLogEntry from logs/route.ts; replace NEXTAUTH_URL HTTP fetch in attributes/[propertyId]/route.ts with direct call — 2026-03-13
+- [x] Fix Critical 4: Replace unbounded 429 recursion with MAX_RETRIES=5 loop in oauthFetch + etsyFetch (etsy-client.ts) — 2026-03-13
+- [x] Fix Critical 1+2: Split 2,223-line page.tsx into 14 feature-based files — 2026-03-13
+  - [x] Create src/types.ts (all interfaces + LogEntry) — 2026-03-13
+  - [x] Create src/lib/utils.ts (formatPrice, formatDate, scoreColor, scoreBadge, scoreBar) — 2026-03-13
+  - [x] Create src/components/CopyButton.tsx — 2026-03-13
+  - [x] Create src/components/AttributeRow.tsx — 2026-03-13
+  - [x] Create src/components/detail/tabs/DetailsTab.tsx — 2026-03-13
+  - [x] Create src/components/detail/tabs/ImagesTab.tsx — 2026-03-13
+  - [x] Create src/components/detail/tabs/SEOTab.tsx — 2026-03-13
+  - [x] Create src/components/detail/tabs/RecsTab.tsx — 2026-03-13
+  - [x] Create src/components/detail/tabs/BenchmarksTab.tsx — 2026-03-13
+  - [x] Create src/components/detail/DetailPanel.tsx (owns all state + functions) — 2026-03-13
+  - [x] Create src/components/KeywordsPanel.tsx — 2026-03-13
+  - [x] Create src/components/LogsPanel.tsx — 2026-03-13
+  - [x] Create src/components/GlossaryPanel.tsx — 2026-03-13
+  - [x] Rewrite src/app/page.tsx to Dashboard only (284 lines) — 2026-03-13
+- [ ] Document non-critical audit issues in Technical Debt Backlog section of todo.md
+
+### Review — Code Audit: Critical Fixes + page.tsx Split 2026-03-13
+
+#### What was built
+- **Critical 3** — `appendLogEntry()` exported from `src/app/api/logs/route.ts`; `src/app/api/etsy/listings/[id]/attributes/[propertyId]/route.ts` now calls it directly instead of HTTP-fetching localhost
+- **Critical 4** — `oauthFetch` and `etsyFetch` in `src/lib/etsy-client.ts`: replaced unbounded recursive self-calls on 429 with `MAX_RETRIES=5` loop; throws `"Max retries exceeded"` after 5 attempts
+- **page.tsx split** — 2,223 lines → 284 lines (Dashboard shell only). 14 new files:
+  - `src/types.ts` — all shared interfaces and type aliases
+  - `src/lib/utils.ts` — formatPrice, formatDate, scoreColor, scoreBadge, scoreBar
+  - `src/components/CopyButton.tsx` — copy-to-clipboard button component
+  - `src/components/AttributeRow.tsx` — attribute gap row with dropdown + Apply button
+  - `src/components/detail/tabs/DetailsTab.tsx` — performance KPIs, description, tags, properties, keywords
+  - `src/components/detail/tabs/ImagesTab.tsx` — image grid with alt text display
+  - `src/components/detail/tabs/SEOTab.tsx` — SEO score breakdown
+  - `src/components/detail/tabs/RecsTab.tsx` — checklist, competitor insights, recs, push live, attributes
+  - `src/components/detail/tabs/BenchmarksTab.tsx` — competitor benchmark metrics
+  - `src/components/detail/DetailPanel.tsx` — all DetailPanel state, hooks, and async functions
+  - `src/components/KeywordsPanel.tsx`
+  - `src/components/LogsPanel.tsx`
+  - `src/components/GlossaryPanel.tsx`
+
+#### Verification
+- Build passes: 21 routes, 0 TypeScript errors ✅
+- page.tsx: 284 lines ✅ (target was ~300)
+
 ## Archive — Phase 1 (completed 2026-02-25)
 
 ### Phase 2 — Logs & Change Tracking (Next)

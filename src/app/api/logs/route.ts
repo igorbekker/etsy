@@ -35,15 +35,31 @@ export async function GET() {
   return NextResponse.json({ entries: entries.reverse() });
 }
 
-export async function POST(request: NextRequest) {
-  const body = await request.json() as Omit<LogEntry, "id" | "timestamp">;
+type AppendBody = Omit<LogEntry, "id" | "timestamp" | "listing_title" | "image_index" | "image_id"> & {
+  listing_title?: string;
+  image_index?: number;
+  image_id?: number;
+};
+
+export function appendLogEntry(body: AppendBody): void {
   const entry: LogEntry = {
-    id: `${Date.now()}-${body.listing_id}-${body.image_index}`,
+    id: `${Date.now()}-${body.listing_id}-${body.image_index ?? 0}`,
     timestamp: new Date().toISOString(),
-    ...body,
+    listing_id: body.listing_id,
+    listing_title: body.listing_title ?? "",
+    field: body.field,
+    image_index: body.image_index ?? 0,
+    image_id: body.image_id ?? 0,
+    old_value: body.old_value,
+    new_value: body.new_value,
   };
   const entries = readLog();
   entries.push(entry);
   writeLog(entries);
-  return NextResponse.json({ ok: true, id: entry.id });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json() as AppendBody;
+  appendLogEntry(body);
+  return NextResponse.json({ ok: true });
 }

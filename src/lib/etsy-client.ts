@@ -137,24 +137,26 @@ async function getValidToken(): Promise<string> {
   return tokens.access_token;
 }
 
+const MAX_RETRIES = 5;
+
 // --- Authenticated Fetch (OAuth bearer token) ---
 
 async function oauthFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const token = await getValidToken();
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
-      ...(options.headers as Record<string, string>),
-    },
-  });
-  if (res.status === 429) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
+        ...(options.headers as Record<string, string>),
+      },
+    });
+    if (res.status !== 429 || attempt === MAX_RETRIES) return res;
     const retryAfter = parseInt(res.headers.get("retry-after") || "5");
     await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return oauthFetch(endpoint, options);
   }
-  return res;
+  throw new Error("Max retries exceeded");
 }
 
 // --- API Calls ---
@@ -167,19 +169,13 @@ async function etsyFetch(
     "x-api-key": `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`,
     ...(options.headers as Record<string, string>),
   };
-
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (response.status === 429) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+    if (response.status !== 429 || attempt === MAX_RETRIES) return response;
     const retryAfter = parseInt(response.headers.get("retry-after") || "5");
     await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
-    return etsyFetch(endpoint, options);
   }
-
-  return response;
+  throw new Error("Max retries exceeded");
 }
 
 export function getShopId(): string {

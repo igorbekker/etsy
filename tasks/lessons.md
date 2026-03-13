@@ -87,17 +87,9 @@
 **Violated.** When user reported "logs records nothing," proposed a full logs implementation plan instead of noting it's Phase 2 and moving on. User had to redirect: "move the logs comment to Phase 2."
 **Rule:** When a bug report touches a known Phase 2 placeholder, fix the actual bug reported and note the Phase 2 work as deferred. Do not propose building Phase 2 scope unless the user explicitly asks for it.
 
-## 22. Etsy returns 404 "Resource not found" for missing OAuth scope — not 403
-**Pattern.** PATCH /listings/{id}/images/{imageId} returned 404 when the token lacked listings_w scope. GET on the same resource returned 200. Misleading error caused confusion.
-**Rule:** When an Etsy PATCH/PUT/DELETE returns 404 but GET works, suspect missing OAuth scope first. Check whether the operation requires a scope beyond what was authorized. Detect "Resource not found" in the error handler and surface a scope-specific message.
-
-## 23. Etsy v3 write operations require shop-scoped URLs — not direct listing URLs
-**Pattern.** PATCH `/application/listings/{id}/images/{imageId}` returned 404. PATCH `/application/shops/{shop_id}/listings/{id}/images/{imageId}` returned 200. Same token, same scope, same image. Only the URL differed.
-**Rule:** All Etsy v3 write operations (PATCH/PUT/DELETE on listings/images) must use the shop-scoped URL pattern `/application/shops/${ETSY_SHOP_ID}/listings/{id}/...`. Read operations (GET) work on either URL. When a write returns 404 and scope is confirmed correct, check the URL pattern next.
-
-## 24. Etsy v3 has no PATCH endpoint for images — use POST with listing_image_id to update alt_text
-**Violated.** Built `updateListingImageAltText` using PATCH, which doesn't exist in Etsy v3. Spent multiple rounds debugging a 404 that was never going to resolve. The correct method is POST to `/application/shops/{shop_id}/listings/{listing_id}/images` with `listing_image_id` (existing image ID) and `alt_text`.
-**Rule:** Before building any write operation against Etsy, check the OpenAPI spec for the exact method. Image endpoints: GET (read), POST (create/update), DELETE only — no PATCH or PUT.
+## 22. Before building any Etsy write operation — check method, URL pattern, and OAuth scope
+**Pattern (3 separate incidents, same root cause).** Three distinct 404s from Etsy write operations: (a) PATCH returned 404 because token lacked `listings_w` scope — GET on same resource returned 200; (b) PATCH to `/application/listings/{id}/images/{imageId}` returned 404, but `/application/shops/{shop_id}/listings/{id}/images/{imageId}` returned 200 — URL pattern was wrong; (c) built `updateListingImageAltText` using PATCH which doesn't exist in Etsy v3 — correct method is POST with `listing_image_id`.
+**Rule:** Before building any Etsy write operation, verify all three dimensions against the OpenAPI spec: (1) **method** — image endpoints are GET/POST/DELETE only, no PATCH or PUT; (2) **URL** — all writes use shop-scoped URLs `/application/shops/${ETSY_SHOP_ID}/listings/{id}/...`, not direct `/application/listings/{id}/...`; (3) **scope** — confirm the token was authorized with the required scope. A silent 404 on a write op means one of these three is wrong — check them in order.
 
 ## 25. overwrite=true on Etsy image POST clears fields not included in the request
 **Violated.** Sent `overwrite=true` expecting it to mean "replace this specific image". It cleared the alt_text to null instead of updating it. The field is for replacing the image binary, not for updating metadata.
@@ -107,17 +99,19 @@
 **CRITICAL VIOLATION.** During debugging of the Push Live feature, ran `curl -X PATCH .../listings/4447796840 --data-urlencode "description=test"` directly from the terminal. This overwrote the real product description on a live Etsy listing with the word "test". The original description was not fully cached and could not be recovered programmatically.
 **Rule:** NEVER issue any write call (PATCH, POST, PUT, DELETE) to the Etsy API from the terminal or any script. Verification of write operations is ONLY done through the app UI by the user. If a write endpoint needs testing, test it with a READ (GET) first to confirm the shape of the data, then let the user trigger the write from the UI. No exceptions. No "just a quick test."
 
-## 28. Don't propose infrastructure (crons, schedules) before asking the user how they want it triggered
-**Violated.** Proposed a cron job running every 6 hours without asking how often new listings are added or whether the user even wants automatic scheduling. User pointed out a manual button was simpler and sufficient.
-**Rule:** Before designing any background job or scheduled task, ask: (a) what triggers the need — is it time-based or event-based? (b) does the user want it automatic or manual? A button is often better than a cron.
-
-## 29. Don't call localhost from a cron on a Next.js VPS — run logic directly
-**Violated.** Proposed a cron that would `curl localhost:3000/api/cron/...`. This is fragile (server must be up, port must match) and wrong for this stack (Next.js, not Gunicorn/Python).
-**Rule:** For background tasks in a Next.js app on a VPS, either run a standalone Node script that imports the logic directly, or use a manual trigger via UI button. Never design a cron that HTTP-calls its own server.
+## 28. Before designing background jobs — confirm trigger type, manual vs automatic, and implementation approach
+**Pattern (2 incidents, same root cause).** Proposed a cron running every 6 hours without asking if automation was wanted (user preferred a button); then proposed that cron call `curl localhost:3000/api/cron/...` which is fragile and wrong for Next.js on a VPS.
+**Rule:** Before designing any background job: (a) confirm whether the trigger is time-based or event-based; (b) ask if the user wants it automatic or manual — a UI button is often better and always simpler; (c) if a background script is needed, import the logic directly into a standalone Node script — never design a cron that HTTP-calls its own server.
 
 ## 30. When a feature is irrelevant to the user's context, delete it — don't skip it
 **Violated.** Proposed skipping the shipping flag feature because all listings have free shipping. User corrected: "Don't skip it; just delete it." Skipping leaves dead weight in the plan; deleting keeps it clean.
 **Rule:** When a planned feature is confirmed irrelevant (wrong stack, wrong shop setup, zero users), remove it from CLAUDE.md and todo.md entirely. Don't mark it deferred or skipped — delete it.
+
+## 31. AI recommendations must be grounded in the actual listing — no title-word fallback
+**Violated.** The recommendations route had a fallback: when no keywords were saved, it extracted words from the listing title and used them to find competitors. This produced wrong-niche competitors, which caused Claude to generate off-topic recommendations (a listing about one product received recommendations for a completely different product).
+**Rule:** Never fall back to title-word competitor searches for AI recommendation generation. If no target keywords are saved, return `{ error: "no_keywords" }` and prompt the user to set them. Additionally, the Claude prompt must explicitly anchor to the product identity ("you are optimizing THIS specific product") and instruct Claude to discard competitor keywords that don't apply to this product.
+**Why:** The recommendations route is supposed to be grounded in the actual listing. Title-word fallback silently breaks that contract and produces useless output that erodes user trust.
+**How to apply:** Any route that uses competitor data to inform AI output must require explicit keywords. No implicit fallbacks.
 
 ## 26. After deploying new code, confirm the old server process was actually killed
 **Violated.** Restarted the server but the old process (PID 289171) was still running and holding port 3000. The new process silently failed to bind. Spent time debugging the wrong binary.

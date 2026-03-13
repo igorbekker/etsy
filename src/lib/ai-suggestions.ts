@@ -81,20 +81,24 @@ Use this keyword data as the foundation for ALL recommendations:
     messages: [
       {
         role: "user",
-        content: `You are an Etsy SEO expert. Analyze this listing and provide optimization recommendations based on real Etsy keyword research and competitor data.
+        content: `You are an Etsy SEO expert. Your job is to optimize the specific listing below for better search ranking and conversion.
 
-## Current Listing
-- Title: "${listing.title}"
+## PRODUCT IDENTITY — THIS IS THE PRODUCT YOU ARE OPTIMIZING
+Title: "${listing.title}"
+Description (first 300 chars): "${listing.description?.slice(0, 300)}${(listing.description?.length ?? 0) > 300 ? "..." : ""}"
+Materials: ${listing.materials?.join(", ") || "none"}
+
+⚠️ CRITICAL RULE: Every recommendation you write — title, tags, description, alt text — must describe THIS specific product and nothing else. The competitor data below is used only to find better keywords and phrases for THIS product. If a competitor sells something unrelated, ignore their keywords. Never recommend a keyword, phrase, or description that doesn't accurately describe this listing.
+
+## Full Listing Data
 - Tags (${listing.tags?.length || 0}/13): ${listing.tags?.join(", ") || "none"}
-- Description: "${listing.description?.slice(0, 500)}${listing.description?.length > 500 ? "..." : ""}"
-- Materials: ${listing.materials?.join(", ") || "none"}
 - Category ID: ${listing.taxonomy_id || "not set"}
 - Views: ${listing.views}
 
 ## Images
 ${imageContext}
 ${keywordSection}
-## Top Competitors for Similar Keywords
+## Top Competitors for These Keywords (use for keyword ideas only — do not copy their product descriptions)
 ${competitorContext}
 
 ## Instructions
@@ -102,37 +106,38 @@ Respond in valid JSON only (no markdown, no code fences) with this structure:
 {
   "title": {
     "current": "current title",
-    "recommended": "optimized title (max 140 chars, front-load keywords, use separators)",
+    "recommended": "optimized title (max 140 chars, front-load primary keyword, use | or , as separators, must accurately describe this specific product)",
     "reasoning": "why this title is better"
   },
   "tags": {
     "current": ["current", "tags"],
-    "recommended": ["13 optimized tags", "multi-word phrases", "mix of broad and specific"],
+    "recommended": ["13 optimized tags", "multi-word phrases", "mix of broad and specific", "all must be relevant to this specific product"],
     "reasoning": "why these tags are better"
   },
   "description": {
     "current": "first 200 chars of current description",
-    "recommended": "optimized first 2-3 paragraphs with keywords naturally woven in, include product details, sizing, materials, care instructions",
+    "recommended": "optimized first 2-3 paragraphs — weave in primary and secondary keywords naturally, describe the product accurately, include materials, dimensions if known, use cases",
     "reasoning": "why this description is better"
   },
   "altTexts": [
-    {"imageIndex": 0, "current": "current alt", "recommended": "keyword-rich descriptive alt text"}
+    {"imageIndex": 0, "current": "current alt", "recommended": "keyword-rich descriptive alt text that describes what is shown in the image of this specific product"}
   ],
   "category": {
     "current": 1234,
     "recommended": "Analysis of whether the current category is optimal based on what top competitors use. If most competitors use a different category ID, recommend switching and explain why.",
     "reasoning": "why this category is or isn't the best fit"
   },
-  "overallStrategy": "1-2 sentence summary of the optimization strategy"
+  "overallStrategy": "1-2 sentence summary of the optimization strategy for this specific product"
 }
 
-Focus on:
-1. Keywords that top competitors use but this listing is missing
-2. Natural keyword placement (not stuffing)
-3. Etsy's 140-char title limit and 13-tag limit
-4. Alt text should describe the image AND include relevant keywords
-5. Only include altTexts for images that need improvement (empty or short alt text)
-6. For category: compare this listing's category ID against competitors' categories. If most competitors use a different category, recommend the change.`,
+Rules:
+1. Front-load the primary target keyword in the title
+2. Tags: prioritize high-frequency competitor tags that are missing from this listing AND relevant to this product
+3. Weave autocomplete suggestions into the description naturally
+4. Etsy's 140-char title limit and 13-tag limit are hard limits
+5. Alt text: describe what is actually shown in each image, include keywords
+6. Only include altTexts for images with empty or very short alt text
+7. For category: compare this listing's taxonomy_id against competitors'. Recommend change only if majority use a different one.`,
       },
     ],
   });

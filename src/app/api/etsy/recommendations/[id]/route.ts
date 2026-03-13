@@ -108,23 +108,8 @@ export async function GET(
       return NextResponse.json({ recommendations, competitorInsights });
     }
 
-    // Fallback: no saved keywords — use title words for competitor search
-    const titleWords = listing.title
-      .split(/[\s,|/\-–—]+/)
-      .filter((w) => w.length > 3)
-      .slice(0, 3)
-      .join(" ");
-
-    const fallbackResearch = await performKeywordResearch(titleWords);
-    const competitors = fallbackResearch.competitors.filter((c) => c.listing_id !== listingId);
-
-    const recommendations = await generateListingRecommendations(listing, competitors);
-    const competitorInsights = compileCompetitorInsights(
-      listing.tags ?? [],
-      competitors,
-      fallbackResearch.tagFrequency
-    );
-    return NextResponse.json({ recommendations, competitorInsights });
+    // No saved keywords — require them. Title-word fallback produces wrong competitors → off-topic AI output.
+    return NextResponse.json({ error: "no_keywords" }, { status: 400 });
 
   } catch (error) {
     console.error(`Failed to generate recommendations for ${id}:`, error);
