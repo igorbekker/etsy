@@ -101,67 +101,37 @@ Build a web tool for the Etsy shop **MyHomeByMax** that connects to the Etsy API
 
 ---
 
-## Phase 1 — Core Features (Now)
+## Phase 1 — Core Features (COMPLETE — 2026-02-25)
 
-### 1. Etsy API Connection & Auth
-- OAuth 2.0 + PKCE flow to connect to Etsy API
-- Secure token storage (access + refresh tokens)
-- Auto-refresh tokens before expiry (1hr access, 90-day refresh)
-- Secure login for the web app (simple username/password)
+All Phase 1 features are shipped. See tasks/todo.md Archive section for details.
 
-### 2. Download Full Listing Data
-Pull and display all data for every listing in the shop:
-- Title
-- Description
-- Tags (up to 13)
-- Images (up to 10 per listing)
-- Image alt text
-- Price
-- Quantity / inventory
-- Category (taxonomy)
-- Materials
-- Shipping profile
-- Processing time
-- Who made / when made
-- Styles
-- Personalization settings
-- View count (lifetime)
-- Listing state (active/draft/inactive)
-- URL
-
-### 3. Keyword Research
-- **Etsy autocomplete scraping** — pull search suggestions from Etsy's search bar for seed keywords
-- **Competitor analysis** — use `findAllListingsActive` API endpoint to analyze top-ranking listings for target keywords (their titles, tags, descriptions)
-- **AI-powered suggestions** — use Claude to analyze your listings vs competitors and suggest keyword improvements
-- Display keyword ideas with context (which competitors use them, frequency)
-
-### 4. Optimization Recommendations
-For each listing, generate actionable recommendations:
-- **Title optimization** — keyword placement, length, readability
-- **Tag optimization** — missing high-value tags, redundant tags, tag diversity
-- **Description optimization** — keyword usage, structure, completeness
-- **Image alt-text optimization** — SEO-relevant alt text suggestions
-- **Category/taxonomy check** — is the listing in the best category
-- Score each listing (e.g., SEO score out of 100)
-- Priority ranking: which listings need the most work
-
-### 5. Web App with Secure Login
-- Web-accessible dashboard
-- Simple auth (username/password with hashed credentials)
-- Dashboard showing all listings with optimization scores
-- Detail view per listing with side-by-side current vs recommended
+- Etsy API connection (OAuth PKCE for transactions_r + listings_w scope)
+- Full listing data display (all fields)
+- Keyword research (competitor analysis + AI suggestions)
+- SEO scoring engine (title, tags, description, images, metadata)
+- AI recommendations via Claude API
+- Web app via Cloudflare Tunnel (https://etsy.bornganic.com), auth via Cloudflare Access email OTP
 
 ---
 
-## Phase 2 — Intelligence Engine (Next)
-1. **Tag Push Live** — PATCH /listings/{id} with full 13-tag array; already have copy button, add Push Live
-2. **Title Push Live** — PATCH /listings/{id} with new title; already have copy button, add Push Live
-3. **Description Push Live** — PATCH /listings/{id} with new description; already have copy button, add Push Live
-4. **Attribute fill rate** — GET /seller-taxonomy/nodes/{taxonomy_id}/properties; diff vs listing properties; auto-write missing attributes
-5. **Tag scoring improvements** — attribute duplicate detection, single-word tag replacement with multi-word phrases
-6. **KPI panel** — compute per listing: revenue 30d, conversion proxy, favorites/views ratio, sales velocity, listing age, days until expiry, tag completeness
-7. **Photo benchmarking** — competitor avg photo count vs yours; flag if < 5 or below category avg
-8. **Price analysis** — competitor price distribution (25th/75th percentile); underpriced/overpriced flags; margin formula; human approval required before any write
+## Phase 2 — Intelligence Engine (COMPLETE — 2026-03-13)
+
+**Core principle: all competitor analysis is keyword-driven.**
+Every listing has primary + 2 secondary keywords in data/listing-keywords.json.
+All competitor pulls use those keywords via `GET /listings/active?keywords={kw}&sort_on=score`.
+If no keywords saved → prompt user. No title-word fallback for benchmarks.
+
+**All Phase 2 features shipped:**
+
+1. **Push Live** — PATCH /listings/{id} for title, tags, description; POST for alt text; PUT for attributes. All changes logged to data/change-log.json with revert support.
+
+2. **Conversion Diagnostics** — Details tab, Performance section. Conversion proxy (transactions_30d / views × 100) and Save Rate (num_favorers / views × 100), color-coded with combined diagnosis line.
+
+3. **Competitor Benchmarking Panel** — Benchmarks tab. Pulls top 100 competitors per keyword, deduped + sorted by num_favorers, takes top 30. 4 metrics: price position (range bar), demand gap, tag coverage (X/20 consensus tags), photo count. Cached 24h in data/listing-benchmarks.json.
+
+4. **Attribute Fill Rate** — AI Recs tab, Attributes section. Diffs taxonomy properties vs filled properties, shows gaps with suggested values, Apply button per attribute. Taxonomy cached 30d.
+
+5. **Recommendation Checklist** — AI Recs tab, above Competitor Insights. Tracks 7 optimization items per listing (Tags, Attributes, Title, Description, Alt Text, Photos, Price). Auto-checked when Push Live / Apply succeeds. Photos + Price are manual checkboxes. Persisted in data/listing-checklist.json across sessions and recs regeneration.
 
 ## Phase 3 — Future
 - A/B testing framework
@@ -176,7 +146,7 @@ For each listing, generate actionable recommendations:
 - **Next.js 16** (React + API routes, App Router)
 - **TypeScript**
 - **Tailwind CSS** for styling
-- **Simple JWT auth** (bcryptjs + jsonwebtoken, no NextAuth)
+- **No app-level auth** — Cloudflare Access (email OTP) is the sole gate; middleware.ts is a pass-through
 - **JSON files** for persistent config/data (no database)
 - **Git** for version control
 - **VPS** for hosting (persistent filesystem, running via `npm run start` + Cloudflare Tunnel)
@@ -200,10 +170,13 @@ etsy/
 ├── package.json
 ├── next.config.ts
 ├── .env.local                        # API keys (gitignored)
-├── data/                             # JSON storage (gitignored)
-│   ├── etsy-tokens.json              # OAuth tokens
+├── data/                             # JSON storage (all gitignored)
+│   ├── etsy-tokens.json              # OAuth tokens (transactions_r + listings_w)
 │   ├── listing-keywords.json         # Per-listing target keywords (manual input)
 │   ├── listing-recommendations.json  # Cached AI recommendations + competitor insights
+│   ├── listing-benchmarks.json       # Cached competitor benchmarks (24h TTL)
+│   ├── listing-checklist.json        # Per-listing optimization checklist state
+│   ├── taxonomy-properties.json      # Cached Etsy taxonomy attributes (30d TTL)
 │   └── change-log.json               # Push Live history (for Logs tab + revert)
 ├── src/
 │   ├── middleware.ts                  # Pass-through (Cloudflare Access handles auth)
@@ -211,25 +184,29 @@ etsy/
 │   │   ├── page.tsx                  # Full app: Listings | Keywords | Logs | Glossary tabs
 │   │   ├── layout.tsx
 │   │   └── api/
+│   │       ├── checklist/[id]/route.ts          # GET/POST per-listing checklist state
 │   │       ├── etsy/
-│   │       │   ├── connect/route.ts          # OAuth redirect to Etsy
-│   │       │   ├── callback/route.ts         # OAuth code exchange, token save
-│   │       │   ├── status/route.ts           # { connected: boolean }
-│   │       │   ├── listings/route.ts         # GET all active listings
-│   │       │   ├── listings/[id]/route.ts    # GET single listing (with images)
-│   │       │   ├── listings/[id]/images/[imageId]/route.ts  # PATCH alt text (Push Live)
-│   │       │   ├── transactions/[id]/route.ts               # GET units sold
-│   │       │   ├── recommendations/[id]/route.ts            # Generate AI recs
+│   │       │   ├── connect/route.ts             # OAuth redirect to Etsy
+│   │       │   ├── callback/route.ts            # OAuth code exchange, token save
+│   │       │   ├── status/route.ts              # { connected: boolean }
+│   │       │   ├── listings/route.ts            # GET all active listings
+│   │       │   ├── listings/[id]/route.ts       # GET single listing; PATCH title/tags/description
+│   │       │   ├── listings/[id]/images/[imageId]/route.ts   # POST alt text (Push Live)
+│   │       │   ├── listings/[id]/attributes/route.ts         # GET attribute fill rate + gaps
+│   │       │   ├── listings/[id]/attributes/[propertyId]/route.ts  # PUT single attribute
+│   │       │   ├── listings/[id]/benchmarks/route.ts         # GET competitor benchmarks (cached)
+│   │       │   ├── transactions/[id]/route.ts               # GET units sold (OAuth)
+│   │       │   ├── recommendations/[id]/route.ts            # Generate AI recs via Claude
 │   │       │   ├── recommendations/cache/[id]/route.ts      # Read/write recs cache
-│   │       │   ├── score/[id]/route.ts       # SEO score for one listing
-│   │       │   └── scores/route.ts           # SEO scores for all listings
+│   │       │   ├── score/[id]/route.ts          # SEO score for one listing
+│   │       │   └── scores/route.ts              # SEO scores for all listings
 │   │       ├── keywords/
-│   │       │   ├── research/route.ts         # Competitor pull + tag frequency
-│   │       │   └── ai-suggest/route.ts       # Claude keyword suggestions
-│   │       ├── listing-keywords/[id]/route.ts  # Read/write per-listing target keywords
-│   │       └── logs/route.ts                 # Read/append change log
+│   │       │   ├── research/route.ts            # Competitor pull + tag frequency
+│   │       │   └── ai-suggest/route.ts          # Claude keyword suggestions
+│   │       ├── listing-keywords/[id]/route.ts   # Read/write per-listing target keywords
+│   │       └── logs/route.ts                    # Read/append change log
 │   └── lib/
-│       ├── etsy-client.ts            # Etsy API wrapper (OAuth, listings, write ops)
+│       ├── etsy-client.ts            # Etsy API wrapper (OAuth, listings, write ops, taxonomy, attributes)
 │       ├── keyword-research.ts       # Competitor analysis + tag/title frequency mining
 │       ├── ai-suggestions.ts         # Claude API: listing recs + keyword suggestions
 │       ├── scoring.ts                # SEO scoring engine (title, tags, desc, images, metadata)
@@ -242,8 +219,14 @@ etsy/
 ---
 
 ## Verification
-1. Open https://etsy.bornganic.com → Cloudflare Access email OTP → dashboard loads all listings
-2. Click a listing → Details / Images / SEO Score / AI Recs tabs all render
-3. AI Recs tab: shows cached recommendations or "Sync AI" button to generate
-4. Push Live (alt text) → Logs tab shows the change with revert option
-5. Keywords tab → competitor tag frequency + AI keyword suggestions
+1. Open https://etsy.bornganic.com → Cloudflare Access email OTP → dashboard loads active listings (currently 3 active)
+2. Click a listing → Details / Images / SEO Score / AI Recs / Benchmarks tabs all render
+3. Details tab → Performance section shows Conversion Rate + Save Rate KPIs
+4. Details tab → Target Keywords section (3 inputs, manual entry, saved on blur)
+5. AI Recs tab → Optimization Checklist (7 items) + Competitor Insights + recommendations
+6. AI Recs tab → Attributes section → "Check Attributes" → fill rate + gap rows with Apply buttons
+7. Benchmarks tab → "Run Benchmark" (requires saved keywords) → 4 metric cards
+8. Push Live any field → button goes orange → Pushed! (green) → Logs tab shows entry with Revert
+9. Sync AI button (listings panel header) → generates recs for all uncached listings sequentially
+
+**Note on listing count:** Only 3 listings show as active. The other 9 are inactive/draft on Etsy's side — check Etsy Shop Manager if this is unexpected. The API endpoint is `/listings/active` — draft/inactive listings do not appear.

@@ -661,6 +661,17 @@ Two compounding bugs:
 
 ## Open — In Progress
 
+> **Session context (2026-03-13) — returning after vacation**
+> Last commit: `426c97e` — recommendation checklist (persistent push state)
+> Both Phase 1 and Phase 2 are fully shipped. App is live at https://etsy.bornganic.com.
+> Only 3 of 12 listings are currently active — other 9 are inactive/draft on Etsy's side (check Shop Manager).
+> Server running: `next start` on VPS behind Cloudflare Tunnel. Restart with: `kill <PID> && npm run start &`
+> OAuth tokens in data/etsy-tokens.json — if expired, visit /api/etsy/connect to re-authorize.
+> Next priorities when back:
+> 1. Run the 2 E2E tests below (manual, browser only, ~5 min total)
+> 2. Decide on lessons.md consolidation (28 lessons → ~20, see /post flags)
+> 3. Phase 3 features (see CLAUDE.md) or any new requests
+
 - [ ] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state
 - [ ] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value
 
