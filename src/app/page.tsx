@@ -119,6 +119,10 @@ interface AttributesResult {
   gaps: AttributeGap[];
 }
 
+type ChecklistField = "title" | "tags" | "description" | "alt_text" | "attributes" | "photos" | "price";
+interface ChecklistItem { done: boolean; pushed_at?: string; }
+type ChecklistState = Record<ChecklistField, ChecklistItem>;
+
 type SortMode = "priority" | "views" | "title";
 type DetailTab = "details" | "images" | "seo" | "recommendations" | "benchmarks";
 type TopTab = "listings" | "keywords" | "logs" | "glossary";
@@ -262,6 +266,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
   const [attributesError, setAttributesError] = useState("");
   const [attrStatus, setAttrStatus] = useState<Record<number, "applying" | "done" | "error">>({});
   const [attrErrors, setAttrErrors] = useState<Record<number, string>>({});
+  const [checklist, setChecklist] = useState<ChecklistState | null>(null);
 
   useEffect(() => {
     setActiveTab("details");
@@ -285,6 +290,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
     setAttributesError("");
     setAttrStatus({});
     setAttrErrors({});
+    setChecklist(null);
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
@@ -295,6 +301,10 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
         if (data.error === "not_connected") setUnitsSold("not_connected");
         else if (typeof data.units_sold === "number") setUnitsSold(data.units_sold);
       })
+      .catch(() => {});
+    fetch(`/api/checklist/${listing.listing_id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setChecklist(data); })
       .catch(() => {});
   }, [listing.listing_id]);
 
@@ -309,6 +319,19 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
         setTimeout(() => setKeywordsSaved(false), 2000);
       })
       .catch(() => {});
+  }
+
+  function markChecklist(field: ChecklistField, done: boolean) {
+    const pushed_at = done ? new Date().toISOString() : undefined;
+    setChecklist((prev) => {
+      const base = prev ?? ({} as ChecklistState);
+      return { ...base, [field]: { done, ...(pushed_at ? { pushed_at } : {}) } };
+    });
+    fetch(`/api/checklist/${listing.listing_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field, done }),
+    }).catch(() => {});
   }
 
   async function fetchRecommendations(forceRegenerate = false) {
@@ -334,6 +357,10 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       const res = await fetch(`/api/etsy/recommendations/${listing.listing_id}`);
       if (!res.ok) {
         const data = await res.json();
+        if (data.error === "no_keywords") {
+          setRecsError("no_keywords");
+          return;
+        }
         throw new Error(data.error || "Failed to fetch");
       }
       const data = await res.json();
@@ -370,6 +397,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
         throw new Error(msg);
       }
       setAltTextStatus((prev) => ({ ...prev, [imageId]: "done" }));
+      markChecklist("alt_text", true);
       fetch("/api/logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -403,6 +431,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
         throw new Error(data.error || `Server error (${res.status})`);
       }
       setFieldStatus((prev) => ({ ...prev, [field]: "done" }));
+      markChecklist(field, true);
       fetch("/api/logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -482,6 +511,7 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Apply failed");
       setAttrStatus((prev) => ({ ...prev, [gap.property_id]: "done" }));
+      markChecklist("attributes", true);
       // Re-fetch to update fill rate
       await fetchAttributes();
     } catch (err) {
@@ -798,7 +828,13 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 <p className="text-gray-600 text-xs mt-1">This may take 10–15 seconds</p>
               </div>
             )}
-            {recsError && (
+            {recsError === "no_keywords" && (
+              <div className="p-4 bg-gray-800 border border-gray-700 rounded-lg text-center">
+                <p className="text-sm text-white mb-1">Target keywords required</p>
+                <p className="text-xs text-gray-400">Set primary and secondary keywords in the Details tab before generating recommendations. Keywords tell Claude which search terms to optimize for — without them, recommendations will be off-topic.</p>
+              </div>
+            )}
+            {recsError && recsError !== "no_keywords" && (
               <div className="p-4 bg-red-900/20 border border-red-800/50 rounded-lg">
                 <p className="text-red-400 text-sm">{recsError}</p>
                 <button onClick={() => fetchRecommendations()} className="mt-2 text-xs text-orange-400 hover:text-orange-300">Retry</button>
@@ -812,6 +848,52 @@ function DetailPanel({ listing, seoScore }: { listing: Listing; seoScore: SEOSco
                 >
                   Regenerate
                 </button>
+              </div>
+            )}
+            {checklist && (
+              <div className="p-4 bg-gray-800 border border-gray-700 rounded-xl space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Optimization Checklist</p>
+                  <p className="text-xs text-gray-500">
+                    {Object.values(checklist).filter((i) => i.done).length} / 7 complete
+                  </p>
+                </div>
+                {(
+                  [
+                    { field: "tags" as ChecklistField, label: "Push optimized tags", manual: false },
+                    { field: "attributes" as ChecklistField, label: "Apply missing attributes", manual: false },
+                    { field: "title" as ChecklistField, label: "Push optimized title", manual: false },
+                    { field: "description" as ChecklistField, label: "Push optimized description", manual: false },
+                    { field: "alt_text" as ChecklistField, label: "Push image alt texts", manual: false },
+                    { field: "photos" as ChecklistField, label: "Add photos to reach competitor avg", manual: true },
+                    { field: "price" as ChecklistField, label: "Review price positioning", manual: true },
+                  ] as { field: ChecklistField; label: string; manual: boolean }[]
+                ).map(({ field, label, manual }) => {
+                  const item = checklist[field];
+                  return (
+                    <div key={field} className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => manual ? markChecklist(field, !item.done) : undefined}
+                        className={manual ? "cursor-pointer" : "cursor-default"}
+                        title={manual ? (item.done ? "Mark incomplete" : "Mark complete") : undefined}
+                      >
+                        {item.done
+                          ? <span className="text-green-400 text-base leading-none">✓</span>
+                          : <span className="text-gray-600 text-base leading-none">○</span>
+                        }
+                      </button>
+                      <span className={`text-xs flex-1 ${item.done ? "text-gray-500 line-through" : "text-gray-300"}`}>
+                        {label}
+                        {manual && <span className="text-gray-600 ml-1">(manual)</span>}
+                      </span>
+                      {item.done && item.pushed_at && (
+                        <span className="text-xs text-gray-600 flex-shrink-0">
+                          {new Date(item.pushed_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
             {recommendations && (

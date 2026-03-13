@@ -289,8 +289,39 @@ Every competitor pull in the app must be driven by the listing's saved keywords 
 - [x] AI Recs: generate recommendations in the background on app load (all listings, not on-demand); user opens AI Recs tab and sees results already ready — no waiting — 2026-03-12
 - [x] AI Recs: per recommendation (title, tags, description, alt texts), add a checkbox to mark as accepted and a "Push Live" button — title/tags/description are manual-only (Etsy API v3 cannot write these, show copy-to-clipboard instead); alt text CAN be pushed via API, so "Push Live" is real for images — 2026-03-12
 - [x] AI Recs: deep competitor analysis — 30 competitors, CompetitorInsights section above Overall Strategy (missing tags, title phrases, price range); real vs AI image detection deferred — 2026-03-12
-- [ ] DISCUSS: Recommendation checklist — each generated recommendation set creates a checklist (5–7 actionable items); system tracks which were implemented vs pending; surfaces unimplemented items on next visit. Needs design discussion before building — risk of overcomplication.
-- [x] Read full Etsy API docs and compile: all writable fields, useful data points for analysis, rate limits, endpoints relevant to listings optimization — covered via etsy-intelligence-engine.md gap analysis 2026-03-12
+- [x] Recommendation checklist — persistent push state per listing across sessions — 2026-03-13
+
+### Session 2026-03-13 — Recommendation Checklist
+
+**Design decisions:**
+- Implemented = Push Live / Apply button clicked (auto-checked); Photos + Price = manual checkbox
+- Stored in data/listing-checklist.json (separate from recs cache — survives recs regeneration)
+- State persists across sessions and page refreshes
+
+**Implementation steps:**
+- [x] src/app/api/checklist/[id]/route.ts (NEW): GET returns state or all-false defaults; POST updates field done/pushed_at — 2026-03-13
+- [x] page.tsx: ChecklistField type + ChecklistItem interface + ChecklistState type — 2026-03-13
+- [x] page.tsx: checklist state + markChecklist() + inline fetch in useEffect — 2026-03-13
+- [x] page.tsx: add setChecklist(null) to useEffect reset; add checklist fetch to useEffect — 2026-03-13
+- [x] page.tsx: wire pushField success → markChecklist(field, true) — 2026-03-13
+- [x] page.tsx: wire pushAltText success → markChecklist("alt_text", true) — 2026-03-13
+- [x] page.tsx: wire applyAttribute success → markChecklist("attributes", true) — 2026-03-13
+- [x] page.tsx: checklist widget at top of AI Recs tab — "X/7 complete" + 7 rows with icons + timestamps — 2026-03-13
+
+### Review — Recommendation Checklist 2026-03-13
+
+#### What was built
+- **`src/app/api/checklist/[id]/route.ts`** (NEW) — GET returns all-7 defaults (done: false) if listing not found; POST validates field, writes done + pushed_at to `data/listing-checklist.json`, keyed by listing_id
+- **`page.tsx`** — `ChecklistField` type, `ChecklistItem` interface, `ChecklistState` type; `checklist` state; `markChecklist(field, done)` function (optimistic local update + fire-and-forget POST); checklist fetch added to useEffect alongside keywords/transactions
+- **3 success handler wires:** `pushField` → `markChecklist(field, true)`, `pushAltText` → `markChecklist("alt_text", true)`, `applyAttribute` → `markChecklist("attributes", true)`
+- **UI** — checklist widget shown whenever `checklist !== null` (always, since fetched on listing open); appears above Competitor Insights in AI Recs tab; 7 rows (Tags/Attributes/Title/Description/Alt Text/Photos/Price); checkmark + strikethrough on done; pushed_at date shown; Photos + Price are manual toggle buttons; push-based items display-only (auto-checked)
+
+#### Verification
+- Build passes: 21 routes, 0 TypeScript errors ✅
+- `GET /api/checklist/4447796840` → all-false defaults ✅
+- `POST /api/checklist/4447796840` `{field:"tags",done:true}` → `{ok:true}`, pushed_at written ✅
+- `GET /api/checklist/4447796840` after POST → tags.done=true persisted ✅
+- Server restarted, new PID 324216, new route live ✅
 
 ---
 
