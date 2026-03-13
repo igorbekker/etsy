@@ -179,9 +179,10 @@ etsy/
 │   ├── taxonomy-properties.json      # Cached Etsy taxonomy attributes (30d TTL)
 │   └── change-log.json               # Push Live history (for Logs tab + revert)
 ├── src/
+│   ├── types.ts                      # ALL shared interfaces and type aliases (single source of truth)
 │   ├── middleware.ts                  # Pass-through (Cloudflare Access handles auth)
 │   ├── app/
-│   │   ├── page.tsx                  # Full app: Listings | Keywords | Logs | Glossary tabs
+│   │   ├── page.tsx                  # Dashboard shell only (~300 lines): layout, listing list, top-tab routing
 │   │   ├── layout.tsx
 │   │   └── api/
 │   │       ├── checklist/[id]/route.ts          # GET/POST per-listing checklist state
@@ -204,8 +205,23 @@ etsy/
 │   │       │   ├── research/route.ts            # Competitor pull + tag frequency
 │   │       │   └── ai-suggest/route.ts          # Claude keyword suggestions
 │   │       ├── listing-keywords/[id]/route.ts   # Read/write per-listing target keywords
-│   │       └── logs/route.ts                    # Read/append change log
+│   │       └── logs/route.ts                    # Read/append change log; exports appendLogEntry()
+│   ├── components/
+│   │   ├── CopyButton.tsx            # Reusable: copy-to-clipboard button
+│   │   ├── AttributeRow.tsx          # Reusable: attribute gap row with dropdown + Apply
+│   │   ├── KeywordsPanel.tsx         # Top-level panel: keyword research tab
+│   │   ├── LogsPanel.tsx             # Top-level panel: change logs tab
+│   │   ├── GlossaryPanel.tsx         # Top-level panel: glossary/scoring rules tab
+│   │   └── detail/
+│   │       ├── DetailPanel.tsx       # Owns ALL listing detail state + async functions
+│   │       └── tabs/
+│   │           ├── DetailsTab.tsx    # Performance KPIs, description, tags, properties, keywords
+│   │           ├── ImagesTab.tsx     # Image grid with alt text display
+│   │           ├── SEOTab.tsx        # SEO score breakdown
+│   │           ├── RecsTab.tsx       # Checklist, competitor insights, recs, push live, attributes
+│   │           └── BenchmarksTab.tsx # Competitor benchmark metrics
 │   └── lib/
+│       ├── utils.ts                  # Pure display helpers: formatPrice, formatDate, scoreColor, scoreBadge, scoreBar
 │       ├── etsy-client.ts            # Etsy API wrapper (OAuth, listings, write ops, taxonomy, attributes)
 │       ├── keyword-research.ts       # Competitor analysis + tag/title frequency mining
 │       ├── ai-suggestions.ts         # Claude API: listing recs + keyword suggestions
@@ -215,6 +231,53 @@ etsy/
     ├── todo.md
     └── lessons.md
 ```
+
+---
+
+## Development Standards
+
+These rules govern all future development. Enforce them on every file touched.
+
+### File Size
+- `src/app/page.tsx` — Dashboard shell only. Must stay ≤ 350 lines. If it grows, extract a component.
+- Tab components (`src/components/detail/tabs/`) — pure render, no state, ≤ 250 lines each.
+- `DetailPanel.tsx` — may own state and async functions, but extract a new tab if any tab's JSX exceeds 250 lines.
+- API routes — single responsibility, ≤ 80 lines. Extract shared logic to `src/lib/`.
+- `src/lib/` files — no line limit, but split by concern. A lib file that does two unrelated things should be two files.
+
+### Where Things Live
+- **All TypeScript interfaces and type aliases** → `src/types.ts`. Never define types inline in a component file or route.
+- **Pure display helpers** (format, color, badge functions) → `src/lib/utils.ts`. Import via `@/lib/utils`.
+- **Reusable UI components** (used in 2+ places) → `src/components/`. PascalCase filename.
+- **Tab content** (render-only, props-driven) → `src/components/detail/tabs/`. One file per tab.
+- **Panel state + async functions** → `src/components/detail/DetailPanel.tsx` (or a new top-level panel component). Tabs receive everything via props — they own no state.
+- **Shared server-side logic** → `src/lib/`. Import directly into routes — never HTTP-call your own server.
+
+### Component Conventions
+- Tab components are **pure render**: no `useState`, no `useEffect`, no `fetch`. All data and callbacks come via props.
+- `DetailPanel` owns all listing-level state. Tabs are dumb display layers.
+- Top-level panels (`KeywordsPanel`, `LogsPanel`, etc.) own their own state — they are self-contained.
+- New panels go in `src/components/`, new tab slots go in `src/components/detail/tabs/` + wired in `DetailPanel.tsx`.
+
+### Naming Conventions
+- Components: `PascalCase` — `DetailPanel`, `RecsTab`, `CopyButton`
+- Files: match the component name exactly — `DetailPanel.tsx`, `RecsTab.tsx`
+- API routes: follow Next.js App Router convention — `route.ts` inside `[param]/` folders
+- Exported server-side helpers: `camelCase` — `appendLogEntry`, `getValidToken`
+- Constants: `SCREAMING_SNAKE_CASE` — `MAX_RETRIES`, `CHECKLIST_ITEMS`, `TOP_TABS`
+
+### API Route Rules
+- Never `fetch("http://localhost:3000/api/...")` from inside another route. Import the function directly.
+- Every route handler validates inputs at the top, before any branching or logic.
+- 429 retry loops use `MAX_RETRIES` constant — never recursive self-calls.
+- All `JSON.parse()` on external data (AI responses, Etsy API) is wrapped in try-catch.
+
+### Adding New Features
+1. **New top-level tab** → add panel component in `src/components/`, add entry to `TOP_TABS` in `page.tsx`, add render block in Dashboard body.
+2. **New detail tab** → add tab component in `src/components/detail/tabs/`, add entry to `TABS` in `DetailPanel.tsx`, add props interface, add render block in DetailPanel's tab content area.
+3. **New type** → add to `src/types.ts`. Never define locally.
+4. **New display helper** → add to `src/lib/utils.ts`.
+5. **New API endpoint** → add `route.ts` under `src/app/api/`, add shared logic to `src/lib/` if reused.
 
 ---
 

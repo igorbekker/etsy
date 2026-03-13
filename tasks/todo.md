@@ -838,6 +838,32 @@ CLAUDE.md updated with:
   - [x] Rewrite src/app/page.tsx to Dashboard only (284 lines) — 2026-03-13
 - [ ] Document non-critical audit issues in Technical Debt Backlog section of todo.md
 
+---
+
+## Session 2026-03-13 — Document development methodology in CLAUDE.md
+
+### Plan
+- [x] Update Key Files Structure in CLAUDE.md to reflect new src/components/ hierarchy — 2026-03-13
+- [x] Add Development Standards section: file size limits, where things live, component conventions, naming conventions, API route rules, how to add new features — 2026-03-13
+
+### Review — Development Standards in CLAUDE.md 2026-03-13
+
+#### What was built
+- **Key Files Structure** — updated to show full `src/components/` tree (DetailPanel, 5 tabs, 3 top-level panels, CopyButton, AttributeRow), `src/types.ts`, and `src/lib/utils.ts`. Old entry `page.tsx — Full app` replaced with accurate `Dashboard shell only (~300 lines)`.
+- **Development Standards section** (new, lines 237–295 of CLAUDE.md):
+  - File size limits per file type (page.tsx ≤ 350, tabs ≤ 250, routes ≤ 80)
+  - Where things live: types.ts, utils.ts, components/, tabs/, lib/ — with import paths
+  - Component conventions: tabs are pure render (no state/fetch), DetailPanel owns all listing state, top-level panels are self-contained
+  - Naming conventions: PascalCase components, SCREAMING_SNAKE constants, camelCase server helpers
+  - API route rules: no HTTP self-calls, MAX_RETRIES not recursion, validate first, wrap JSON.parse
+  - Step-by-step guide for adding new tabs, panels, types, helpers, endpoints
+
+#### Verification
+- CLAUDE.md: 295 lines, Development Standards section at line 237 ✅
+- Build passes: 21 routes, 0 TypeScript errors ✅
+
+---
+
 ### Review — Code Audit: Critical Fixes + page.tsx Split 2026-03-13
 
 #### What was built
