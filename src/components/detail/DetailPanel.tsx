@@ -88,6 +88,10 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setChecklist(data); })
       .catch(() => {});
+    fetch(`/api/etsy/listings/${listing.listing_id}/benchmarks`)
+      .then((r) => r.json())
+      .then((data) => { if (data && !data.error) setBenchmarks(data); })
+      .catch(() => {});
   }, [listing.listing_id]);
 
   function saveKeywords(updated: Keywords) {

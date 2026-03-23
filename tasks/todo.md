@@ -672,8 +672,27 @@ Two compounding bugs:
 > 2. Decide on lessons.md consolidation (28 lessons → ~20, see /post flags)
 > 3. Phase 3 features (see CLAUDE.md) or any new requests
 
-- [ ] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state
-- [ ] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value
+- [x] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state — 2026-03-23
+- [x] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value — 2026-03-23
+
+---
+
+## Session 2026-03-23 — Benchmarks disappear on listing switch
+
+### Plan
+- [x] Bug: benchmarks reset to null on listing switch and never auto-reload from cache — 2026-03-23
+
+### Review — Benchmarks bug fix 2026-03-23
+
+#### Root cause
+`DetailPanel.tsx` `useEffect` resets `setBenchmarks(null)` on every `listing.listing_id` change (correct), but unlike keywords, transactions, and checklist, it never auto-fetches benchmarks back from the server-side cache. The benchmark data was persisted in `data/listing-benchmarks.json` but the UI discarded it on every listing switch.
+
+#### What was fixed
+- `src/components/detail/DetailPanel.tsx` — added a 3-line cache-first fetch inside the `useEffect` (after the checklist fetch). Calls `GET /api/etsy/listings/{id}/benchmarks` with no `?refresh=1`, so the server returns cached data immediately if fresh (24h TTL). Sets `benchmarks` state on success; silently ignores errors (no cache or no keywords — user sees the "Run Benchmark" button as before).
+
+#### Verification
+- Build passes: `✓ Compiled successfully`, 0 TypeScript errors ✅
+- Pattern matches existing keywords/transactions/checklist fetch pattern in same useEffect ✅
 
 ---
 
