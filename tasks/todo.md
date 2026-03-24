@@ -14,6 +14,35 @@
 
 ---
 
+## Session 2026-03-24 — Bug Fix: AI recs contaminated by own shop listings / weak relevance filter
+
+- [x] Fix: AI recs for Cross listing mention "clock" (irrelevant) due to own listings polluting competitor pool — 2026-03-24
+
+### Review
+
+#### Root cause
+Two compounding bugs in `benchmark-engine.ts`:
+
+1. **Own listings not excluded from competitor pool.** `analyzeCompetitors` returns results from Etsy's search API with no exclusions. Own shop listings (e.g. Melting Clock Bookend, listing_id 4414223355) can appear in search results for other listings' keywords. They were only excluded by listing_id of the CURRENT listing — all other own listings passed through. The Clock listing (tagged "melting clock", "clock bookend", "dali clock") entered the Cross listing's competitor pool, contaminating consensus tags and AI recommendations.
+
+2. **Relevance filter ANY-token fallback too permissive.** When < 10 competitors matched ALL primary tokens ("christian" AND "bookend"), the fallback used ANY single primary token — "bookend" alone — which matches all bookend types regardless of niche (clocks, chess, hamsa, etc.).
+
+#### What was built
+`src/lib/benchmark-engine.ts` — two targeted changes:
+
+- **Fix 1:** `loadOwnListingIds()` reads all listing IDs from `data/listing-keywords.json`. Dedup filter now excludes all own shop listings: `if (ownIds.has(c.listing_id) || seen.has(c.listing_id)) return false`.
+
+- **Fix 2:** Replaced 3-level fallback (ALL primary → ANY primary → unfiltered) with 4-level fallback (ALL primary → ALL tokens of any secondary keyword → ANY primary → unfiltered). For Cross: if "christian bookend" gives < 10, tries "cross bookend" (all tokens) before falling back to lone "bookend". Clock listing has no "cross" → correctly excluded at L2.
+
+- Cleared `data/listing-benchmarks.json` and `data/listing-recommendations.json` so all listings recompute with clean competitor pools.
+
+#### Verification
+- Build passes: ✓ Compiled successfully, 0 TypeScript errors ✅
+- Server restarted PID 624806, responding 200 ✅
+- Caches cleared — all benchmarks and recs will recompute on next visit ✅
+
+---
+
 ## Session 2026-03-24 — Bug Fix: False "Keywords changed" stale warning
 
 - [x] Fix: "Keywords changed since last benchmark — hit Refresh to update." shown falsely after listing switch — 2026-03-24

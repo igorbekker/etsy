@@ -1,7 +1,21 @@
+import fs from "fs";
+import path from "path";
 import { getListing, getListingProperties } from "@/lib/etsy-client";
 import { analyzeCompetitors } from "@/lib/keyword-research";
 import { classifyListingImages } from "@/lib/ai-suggestions";
 import type { BenchmarkMetrics, ImageClassification } from "@/types";
+
+const KEYWORDS_FILE = path.join(process.cwd(), "data", "listing-keywords.json");
+const MIN_RELEVANT = 10;
+
+function loadOwnListingIds(): Set<number> {
+  try {
+    const store = JSON.parse(fs.readFileSync(KEYWORDS_FILE, "utf-8"));
+    return new Set(Object.keys(store).map(Number));
+  } catch {
+    return new Set();
+  }
+}
 
 const NET_MARGIN_FACTOR = 0.905; // 1 - 0.065 (Etsy fee) - 0.03 (payment processing)
 const NET_MARGIN_FIXED = 0.25;   // $0.25 fixed payment processing fee
@@ -62,25 +76,42 @@ export async function computeBenchmarks(
     keywords.map(kw => analyzeCompetitors(kw, 100, { sortOn: "score", sortOrder: "desc", includes: "images" }))
   );
 
+  const ownIds = loadOwnListingIds();
   const seen = new Set<number>();
   const deduped = competitorSets.flat().filter(c => {
-    if (c.listing_id === listingId || seen.has(c.listing_id)) return false;
+    // Exclude current listing and all own shop listings — they are never real competitors
+    if (ownIds.has(c.listing_id) || seen.has(c.listing_id)) return false;
     seen.add(c.listing_id);
     return true;
   });
 
-  // Filter by relevance to primary keyword so secondary keywords don't pollute competitor set
+  // Relevance filter: tightest match first, progressively loosening
+  // L1: ALL primary tokens match competitor title
+  // L2: ALL tokens of any secondary keyword match competitor title (avoids generic token fallback)
+  // L3: ANY primary token matches (last resort before unfiltered)
+  // L4: unfiltered
   const primaryTokens = tokenize(keywords[0] ?? "");
-  const byRelevance = (pool: typeof deduped, mode: "all" | "any") =>
+  const secondaryTokenSets = keywords.slice(1).map(kw => tokenize(kw)).filter(t => t.length > 0);
+
+  const matchesAllTokens = (titleTokens: Set<string>, tokens: string[]) =>
+    tokens.every(t => titleTokens.has(t));
+
+  const byAllPrimary = (pool: typeof deduped) =>
+    pool.filter(c => primaryTokens.length > 0 && matchesAllTokens(new Set(tokenize(c.title)), primaryTokens));
+
+  const byAllSecondary = (pool: typeof deduped) =>
     pool.filter(c => {
       const titleTokens = new Set(tokenize(c.title));
-      return mode === "all"
-        ? primaryTokens.every(t => titleTokens.has(t))
-        : primaryTokens.some(t => titleTokens.has(t));
+      return secondaryTokenSets.some(tokens => matchesAllTokens(titleTokens, tokens));
     });
-  let relevant = primaryTokens.length > 0 ? byRelevance(deduped, "all") : deduped;
-  if (relevant.length < 10 && primaryTokens.length > 0) relevant = byRelevance(deduped, "any");
-  if (relevant.length < 10) relevant = deduped;
+
+  const byAnyPrimary = (pool: typeof deduped) =>
+    pool.filter(c => primaryTokens.some(t => new Set(tokenize(c.title)).has(t)));
+
+  let relevant = byAllPrimary(deduped);
+  if (relevant.length < MIN_RELEVANT) relevant = byAllSecondary(deduped);
+  if (relevant.length < MIN_RELEVANT) relevant = byAnyPrimary(deduped);
+  if (relevant.length < MIN_RELEVANT) relevant = deduped;
 
   const allCompetitors = relevant
     .sort((a, b) => (b.num_favorers ?? 0) - (a.num_favorers ?? 0))
