@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type {
-  Listing, SEOScore, AIRecommendations, CompetitorInsights,
+  Listing, SEOScore, AIRecommendations,
   BenchmarkResult, AttributesResult, AttributeGap,
   ChecklistState, ChecklistField, Keywords, DetailTab,
 } from "@/types";
@@ -35,7 +35,6 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
   const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
   const [keywordsSaved, setKeywordsSaved] = useState(false);
   const [unitsSold, setUnitsSold] = useState<number | "not_connected" | null>(null);
-  const [competitorInsights, setCompetitorInsights] = useState<CompetitorInsights | null>(null);
   const [altTextStatus, setAltTextStatus] = useState<Record<number, "pushing" | "done" | "error">>({});
   const [altTextErrors, setAltTextErrors] = useState<Record<number, string>>({});
   const [fieldStatus, setFieldStatus] = useState<Record<string, "pushing" | "done" | "error">>({});
@@ -59,7 +58,6 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
     setKeywords({ primary: "", secondary: ["", ""] });
     setKeywordsSaved(false);
     setUnitsSold(null);
-    setCompetitorInsights(null);
     setAltTextStatus({});
     setAltTextErrors({});
     setFieldStatus({});
@@ -128,7 +126,6 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
         if (cacheData.recommendations) {
           setRecommendations(cacheData.recommendations);
           setRecsGeneratedAt(cacheData.generatedAt);
-          if (cacheData.competitorInsights) setCompetitorInsights(cacheData.competitorInsights);
           return;
         }
       } catch {
@@ -142,15 +139,15 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
       if (!res.ok) {
         const data = await res.json();
         if (data.error === "no_keywords") { setRecsError("no_keywords"); return; }
+        if (data.error === "benchmark_required") { setRecsError("Run benchmarks first (Benchmarks tab) before generating recommendations."); return; }
         throw new Error(data.error || "Failed to fetch");
       }
       const data = await res.json();
       setRecommendations(data.recommendations);
-      if (data.competitorInsights) setCompetitorInsights(data.competitorInsights);
       await fetch(`/api/etsy/recommendations/cache/${listing.listing_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recommendations: data.recommendations, competitorInsights: data.competitorInsights }),
+        body: JSON.stringify({ recommendations: data.recommendations }),
       });
       setRecsGeneratedAt(new Date().toISOString());
     } catch (err) {
@@ -329,9 +326,12 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
         {TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => {
+            onClick={async () => {
               setActiveTab(tab.key);
               if (tab.key === "recommendations" && !recommendations && !recsLoading) {
+                if (!benchmarks) {
+                  await fetchBenchmarks();
+                }
                 fetchRecommendations();
               }
             }}
@@ -367,7 +367,8 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
             recsLoading={recsLoading}
             recsError={recsError}
             recsGeneratedAt={recsGeneratedAt}
-            competitorInsights={competitorInsights}
+            benchmarks={benchmarks}
+            benchmarksLoading={benchmarksLoading}
             altTextStatus={altTextStatus}
             altTextErrors={altTextErrors}
             fieldStatus={fieldStatus}

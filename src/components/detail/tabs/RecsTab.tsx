@@ -1,7 +1,7 @@
 "use client";
 
 import type {
-  Listing, AIRecommendations, CompetitorInsights, AttributesResult, AttributeGap,
+  Listing, AIRecommendations, BenchmarkResult, AttributesResult, AttributeGap,
   ChecklistState, ChecklistField,
 } from "@/types";
 import { CopyButton } from "@/components/CopyButton";
@@ -13,7 +13,8 @@ interface RecsTabProps {
   recsLoading: boolean;
   recsError: string;
   recsGeneratedAt: string | null;
-  competitorInsights: CompetitorInsights | null;
+  benchmarks: BenchmarkResult | null;
+  benchmarksLoading: boolean;
   altTextStatus: Record<number, "pushing" | "done" | "error">;
   altTextErrors: Record<number, string>;
   fieldStatus: Record<string, "pushing" | "done" | "error">;
@@ -48,7 +49,8 @@ export function RecsTab({
   recsLoading,
   recsError,
   recsGeneratedAt,
-  competitorInsights,
+  benchmarks,
+  benchmarksLoading,
   altTextStatus,
   altTextErrors,
   fieldStatus,
@@ -68,9 +70,15 @@ export function RecsTab({
 }: RecsTabProps) {
   return (
     <>
+      {benchmarksLoading && !recsLoading && (
+        <div className="text-center py-12">
+          <p className="text-gray-400 text-sm">Running benchmark analysis first...</p>
+          <p className="text-gray-600 text-xs mt-1">Pulling competitor data — this takes 20–30 seconds</p>
+        </div>
+      )}
       {recsLoading && (
         <div className="text-center py-12">
-          <p className="text-gray-400 text-sm">Analyzing listing and competitors...</p>
+          <p className="text-gray-400 text-sm">Generating recommendations from benchmark data...</p>
           <p className="text-gray-600 text-xs mt-1">This may take 10–15 seconds</p>
         </div>
       )}
@@ -137,17 +145,20 @@ export function RecsTab({
 
       {recommendations && (
         <>
-          {/* Competitor Insights */}
-          {competitorInsights && (
+          {/* Competitor Insights from Benchmarks */}
+          {benchmarks && (
             <div className="p-4 bg-gray-800 border border-gray-700 rounded-xl space-y-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Competitor Insights ({competitorInsights.competitorCount} analyzed)
-              </p>
-              {competitorInsights.topMissingTags.length > 0 && (
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Competitor Insights ({benchmarks.competitor_count} analyzed)
+                </p>
+                <p className="text-xs text-gray-600">from benchmark {new Date(benchmarks.computed_at).toLocaleDateString()}</p>
+              </div>
+              {benchmarks.metrics.tags.missing_tags.slice(0, 8).length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1.5">Tags you&apos;re missing (used by competitors)</p>
+                  <p className="text-xs text-gray-500 mb-1.5">Top consensus tags missing from your listing</p>
                   <div className="flex flex-wrap gap-1">
-                    {competitorInsights.topMissingTags.slice(0, 8).map(({ tag, count }) => (
+                    {benchmarks.metrics.tags.missing_tags.slice(0, 8).map(({ tag, count }) => (
                       <span key={tag} className="px-2 py-0.5 bg-red-900/30 border border-red-800/40 text-red-300 text-xs rounded">
                         {tag} <span className="text-red-500/70">{count}x</span>
                       </span>
@@ -155,14 +166,12 @@ export function RecsTab({
                   </div>
                 </div>
               )}
-              {competitorInsights.topTitlePhrases.length > 0 && (
+              {benchmarks.metrics.title.missing_from_your_title.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1.5">Common title phrases in top listings</p>
+                  <p className="text-xs text-gray-500 mb-1.5">Consensus title phrases you&apos;re missing</p>
                   <div className="flex flex-wrap gap-1">
-                    {competitorInsights.topTitlePhrases.slice(0, 6).map(({ phrase, count }) => (
-                      <span key={phrase} className="px-2 py-0.5 bg-blue-900/30 border border-blue-800/40 text-blue-300 text-xs rounded">
-                        {phrase} <span className="text-blue-500/70">{count}x</span>
-                      </span>
+                    {benchmarks.metrics.title.missing_from_your_title.slice(0, 6).map(phrase => (
+                      <span key={phrase} className="px-2 py-0.5 bg-blue-900/30 border border-blue-800/40 text-blue-300 text-xs rounded">{phrase}</span>
                     ))}
                   </div>
                 </div>
@@ -170,8 +179,8 @@ export function RecsTab({
               <div>
                 <p className="text-xs text-gray-500 mb-1">Competitor price range</p>
                 <p className="text-sm text-gray-300">
-                  ${competitorInsights.priceRange.min.toFixed(2)} – ${competitorInsights.priceRange.max.toFixed(2)}
-                  <span className="text-gray-500 text-xs ml-2">(avg ${competitorInsights.priceRange.avg.toFixed(2)})</span>
+                  ${benchmarks.metrics.price.min.toFixed(2)} – ${benchmarks.metrics.price.max.toFixed(2)}
+                  <span className="text-gray-500 text-xs ml-2">(median ${benchmarks.metrics.price.median.toFixed(2)})</span>
                 </p>
               </div>
             </div>

@@ -77,19 +77,45 @@ export interface AISuggestions {
   reasoning: string;
 }
 
+export interface ImageClassification {
+  images: { index: number; type: string; quality_notes: string | null }[];
+  missing_types: string[];
+  coverage_score: number;
+}
+
 export interface BenchmarkMetrics {
   price: {
-    your_price: number; min: number; p25: number; median: number; p75: number; max: number;
-    position: "bottom-25" | "mid-range" | "top-25"; flag: string | null;
+    your_price: number; min: number; p10: number; p25: number; median: number; p75: number; p90: number; max: number;
+    position: "bottom-10" | "mid-range" | "top-10"; flag: string | null;
+    margin_scenarios: { current_price_net: number; median_price_net: number; p75_price_net: number };
   };
   demand: { your_favorers: number; comp_avg: number; your_pct_of_avg: number; flag: "red" | "yellow" | "green" };
   tags: {
-    consensus_tags: { tag: string; count: number }[];
+    consensus_tags: { tag: string; count: number; pct: number }[];
+    primary_targets: { tag: string; count: number; pct: number }[];
+    secondary_targets: { tag: string; count: number; pct: number }[];
     your_coverage: number; total_consensus: number;
-    missing_tags: { tag: string; count: number }[];
+    missing_tags: { tag: string; count: number; pct: number }[];
+    wasted_tag_slots: string[];
+    attribute_values_set: string[];
     flag: "red" | "yellow" | "green";
   };
-  photos: { your_count: number; comp_avg: number; flag: "red" | "yellow" | "green" };
+  favorites_correlation: {
+    high_demand_group_size: number;
+    correlated_tags: { tag: string; count: number; pct: number }[];
+    missing_from_your_listing: { tag: string; count: number; pct: number }[];
+  };
+  title: {
+    consensus_phrases: { phrase: string; count: number; pct: number }[];
+    missing_from_your_title: string[];
+    title_length: number; title_too_long: boolean;
+    primary_keyword_front_loaded: boolean; consensus_coverage: number;
+  };
+  description: { word_count: number; score: number; flags: string[]; missing_keywords: string[] };
+  images: {
+    your_count: number; comp_avg: number; flag: "red" | "yellow" | "green";
+    classification: ImageClassification | null;
+  };
 }
 
 export interface BenchmarkResult {
