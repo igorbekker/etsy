@@ -109,6 +109,12 @@
 **Why:** The recommendations route is supposed to be grounded in the actual listing. Title-word fallback silently breaks that contract and produces useless output that erodes user trust.
 **How to apply:** Any route that uses competitor data to inform AI output must require explicit keywords. No implicit fallbacks.
 
+## 28. Never implement a fix without researching the issue, presenting options, and getting plan approval
+**CRITICAL VIOLATION.** User reported 5 benchmark bugs. Immediately jumped to diagnosis, picked a solution, implemented it, cleared the cache, and restarted the server — all without stopping to present options or get approval.
+**Rule:** Bug report → research & understand the full issue → write plan to todo.md → present 2–3 options with trade-offs → wait for explicit user approval → then implement. No exceptions, even when the root cause seems obvious.
+**Why:** The user may have a different preferred fix, may want to stage the work, or may have context that changes the approach. Autonomous implementation removes their agency.
+**How to apply:** When a bug report arrives, research first (read files, check data, trace the flow), then STOP and present findings + options before touching any code.
+
 ## 27. After deploying new code, confirm the old server process was actually killed
 **Violated.** Restarted the server but the old process (PID 289171) was still running and holding port 3000. The new process silently failed to bind. Spent time debugging the wrong binary.
 **Rule:** After killing a server and starting a new one, immediately run `ps aux | grep next` to confirm the old PID is gone and the new PID is running. Then hit a known endpoint to confirm the new code is live before testing the fix.

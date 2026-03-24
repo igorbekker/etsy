@@ -661,10 +661,10 @@ Two compounding bugs:
 
 ## Open — In Progress
 
-> **Session context (2026-03-23)**
-> Last commit: `16d4fa0` — fix benchmarks auto-load on listing switch
-> Both Phase 1 and Phase 2 fully shipped. Phase 3 planning underway (see below).
-> App live at https://etsy.bornganic.com. Server PID 615427.
+> **Session context (2026-03-24)**
+> Last commit: `bbddee3` — Phase 3 complete (benchmark engine, AI recs wiring, BenchmarksTab UI)
+> Phase 1, 2, and 3 fully shipped. Next: Phase 4 (see Phase 3 → Future in CLAUDE.md).
+> App live at https://etsy.bornganic.com. Server PID 619469.
 
 - [x] End-to-end test: switch listings mid-generation — confirm no Analyzing... stuck state — 2026-03-23
 - [x] End-to-end test: push alt text, switch listing, come back — confirm current column shows live value — 2026-03-23
@@ -1301,6 +1301,29 @@ CLAUDE.md updated with:
 - Dashboard shows SEO score badges with priority sorting ✅
 - Side-by-side current vs recommended for title, tags, description, alt text ✅
 - CLAUDE.md verified line-by-line — all features match ✅
+
+---
+
+## Session 2026-03-24 — Bug Fix: Benchmark Competitor Relevance Filter
+
+### Task
+- [x] Fix BenchmarksTab data quality bugs: 0/20 tag coverage, wrong-listing keywords in title analysis, irrelevant price range, off-topic description audit — 2026-03-24
+
+### Root Cause
+Secondary keywords (e.g. `"hand decor"`) were pulling irrelevant competitors into the pool. Searching "hand decor" returned Halloween/gothic/hamsa products with high favoriter counts, which dominated the top 30. Result: consensus tags were `halloween decor`, `spooky decor`, `witch hand decor` — none present in a bookend listing's tags (0/20 coverage), hamsa appearing in title analysis for a hand bookend listing, price range spanning unrelated niches ($3–$8992).
+
+### What was built
+- **`src/lib/benchmark-engine.ts`** — Added relevance filter after deduplication, before sort/slice:
+  - Tokenize primary keyword
+  - Try ALL-token match first (every primary token must appear in competitor title)
+  - Fall back to ANY-token match if < 10 results
+  - Fall back to unfiltered if still < 10
+- Cleared `data/listing-benchmarks.json` so all listings recompute with filtered competitors
+
+### Verification
+- Build passes: ✓ Compiled successfully — 2026-03-24
+- App restarted (PID 621089), server responding 200 ✅
+- Cache cleared — all benchmarks will recompute on next visit ✅
 
 ---
 

@@ -63,12 +63,26 @@ export async function computeBenchmarks(
   );
 
   const seen = new Set<number>();
-  const allCompetitors = competitorSets.flat()
-    .filter(c => {
-      if (c.listing_id === listingId || seen.has(c.listing_id)) return false;
-      seen.add(c.listing_id);
-      return true;
-    })
+  const deduped = competitorSets.flat().filter(c => {
+    if (c.listing_id === listingId || seen.has(c.listing_id)) return false;
+    seen.add(c.listing_id);
+    return true;
+  });
+
+  // Filter by relevance to primary keyword so secondary keywords don't pollute competitor set
+  const primaryTokens = tokenize(keywords[0] ?? "");
+  const byRelevance = (pool: typeof deduped, mode: "all" | "any") =>
+    pool.filter(c => {
+      const titleTokens = new Set(tokenize(c.title));
+      return mode === "all"
+        ? primaryTokens.every(t => titleTokens.has(t))
+        : primaryTokens.some(t => titleTokens.has(t));
+    });
+  let relevant = primaryTokens.length > 0 ? byRelevance(deduped, "all") : deduped;
+  if (relevant.length < 10 && primaryTokens.length > 0) relevant = byRelevance(deduped, "any");
+  if (relevant.length < 10) relevant = deduped;
+
+  const allCompetitors = relevant
     .sort((a, b) => (b.num_favorers ?? 0) - (a.num_favorers ?? 0))
     .slice(0, 30);
 
