@@ -4,6 +4,7 @@ import type { Keywords, BenchmarkResult } from "@/types";
 
 interface BenchmarksTabProps {
   keywords: Keywords;
+  keywordsLoaded: boolean;
   benchmarks: BenchmarkResult | null;
   benchmarksLoading: boolean;
   benchmarksError: string;
@@ -13,7 +14,7 @@ interface BenchmarksTabProps {
 const FLAG_BG = { red: "bg-red-900/30 border-red-800/50", yellow: "bg-yellow-900/30 border-yellow-800/50", green: "bg-green-900/30 border-green-800/50" };
 const FLAG_TEXT = { red: "text-red-400", yellow: "text-yellow-400", green: "text-green-400" };
 
-export function BenchmarksTab({ keywords, benchmarks, benchmarksLoading, benchmarksError, onFetchBenchmarks }: BenchmarksTabProps) {
+export function BenchmarksTab({ keywords, keywordsLoaded, benchmarks, benchmarksLoading, benchmarksError, onFetchBenchmarks }: BenchmarksTabProps) {
   const b = benchmarks;
   return (
     <div className="space-y-4">
@@ -30,7 +31,7 @@ export function BenchmarksTab({ keywords, benchmarks, benchmarksLoading, benchma
       </div>
 
       {/* Keyword stale warning */}
-      {b && JSON.stringify(b.keywords_used) !== JSON.stringify([keywords.primary, ...keywords.secondary].map(k => k.trim()).filter(Boolean)) && (
+      {b && keywordsLoaded && JSON.stringify(b.keywords_used) !== JSON.stringify([keywords.primary, ...keywords.secondary].map(k => k.trim()).filter(Boolean)) && (
         <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-3">
           <p className="text-xs text-yellow-400">Keywords changed since last benchmark — hit Refresh to update.</p>
         </div>

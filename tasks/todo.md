@@ -14,6 +14,24 @@
 
 ---
 
+## Session 2026-03-24 — Bug Fix: False "Keywords changed" stale warning
+
+- [x] Fix: "Keywords changed since last benchmark — hit Refresh to update." shown falsely after listing switch — 2026-03-24
+
+### Review
+
+#### Root cause
+Race condition in `DetailPanel` `useEffect`: benchmark cache fetch resolves before the keywords fetch, so when `benchmarks` state is set, `keywords` is still the reset value `{ primary: "", secondary: ["", ""] }`. `BenchmarksTab` compared `b.keywords_used` against an empty array → mismatch → warning fired briefly on every listing switch.
+
+#### What was built
+- `DetailPanel.tsx`: added `keywordsLoaded` boolean state (default `false`), reset to `false` on listing switch, set to `true` in `.finally()` of the keywords fetch
+- `BenchmarksTab.tsx`: added `keywordsLoaded` prop to interface + destructure; gated the stale warning with `&& keywordsLoaded` so it can only render after keywords are confirmed loaded
+
+#### Verification
+- Build passes: ✓ Compiled successfully, 0 TypeScript errors ✅
+
+---
+
 ## Phase 3 — Unified Intelligence Engine
 
 ### Architecture Decision (2026-03-23)

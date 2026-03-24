@@ -34,6 +34,7 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
   const [recsGeneratedAt, setRecsGeneratedAt] = useState<string | null>(null);
   const [keywords, setKeywords] = useState<Keywords>({ primary: "", secondary: ["", ""] });
   const [keywordsSaved, setKeywordsSaved] = useState(false);
+  const [keywordsLoaded, setKeywordsLoaded] = useState(false);
   const [unitsSold, setUnitsSold] = useState<number | "not_connected" | null>(null);
   const [altTextStatus, setAltTextStatus] = useState<Record<number, "pushing" | "done" | "error">>({});
   const [altTextErrors, setAltTextErrors] = useState<Record<number, string>>({});
@@ -57,6 +58,7 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
     setRecsGeneratedAt(null);
     setKeywords({ primary: "", secondary: ["", ""] });
     setKeywordsSaved(false);
+    setKeywordsLoaded(false);
     setUnitsSold(null);
     setAltTextStatus({});
     setAltTextErrors({});
@@ -74,7 +76,8 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
     fetch(`/api/listing-keywords/${listing.listing_id}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setKeywords(data); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setKeywordsLoaded(true));
     fetch(`/api/etsy/transactions/${listing.listing_id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -390,6 +393,7 @@ export function DetailPanel({ listing, seoScore }: DetailPanelProps) {
         {activeTab === "benchmarks" && (
           <BenchmarksTab
             keywords={keywords}
+            keywordsLoaded={keywordsLoaded}
             benchmarks={benchmarks}
             benchmarksLoading={benchmarksLoading}
             benchmarksError={benchmarksError}
